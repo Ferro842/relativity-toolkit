@@ -185,7 +185,6 @@ st.set_page_config(
     page_title="Spacetime Forge",
     page_icon="🛸",
     layout="wide",
-    initial_sidebar_state="collapsed",
 )
 
 
@@ -765,6 +764,7 @@ LEERPAD = [
     "💫 Relativistisch impuls",
     "🕳 Zwarte gaten",
     "🛰 Gravitationele tijdvertraging",
+    "🌌 Big Bang & kosmologie",
     "📖 Formulekaart",
 ]
 
@@ -849,8 +849,9 @@ def render_toolkit():
             ("💫 Relativistisch impuls", "Impuls en energie bij hoge snelheid, en fotonen zonder massa"),
         ]),
         ("🕳 Richting Algemene Relativiteit", [
-            ("🕳 Zwarte gaten", "De grens waarachter zelfs licht niet meer kan ontsnappen"),
+            ("🕳 Zwarte gaten", "De grens waarachter zelfs licht niet meer kan ontsnappen — nu ook met wormgaten"),
             ("🛰 Gravitationele tijdvertraging", "Waarom GPS zonder Einstein 11 km per dag mis zou zitten"),
+            ("🌌 Big Bang & kosmologie", "Waarom alle sterrenstelsels van ons lijken weg te bewegen"),
         ]),
         ("📖 Naslag", [
             ("📖 Formulekaart", "Alle formules overzichtelijk op één pagina"),
@@ -858,32 +859,54 @@ def render_toolkit():
     ]
 
     flat_modules = [mod for _, mods in alle_modules for mod, _tip in mods]
+    groep_van_module = {mod: groep for groep, mods in alle_modules for mod, _tip in mods}
+    tooltip_van_module = {mod: tip for _, mods in alle_modules for mod, tip in mods}
 
-    with st.sidebar:
-        st.markdown("### 🛸 Spacetime Forge")
-        if st.button("← Home", key="sidebar_home"):
+    if "active_module" not in st.session_state:
+        st.session_state.active_module = flat_modules[0]
+
+    # Navigatie bovenaan i.p.v. uitklapbare sidebar — op mobiel werkt dit
+    # vloeiender: alles staat meteen in beeld, er is geen hamburger-menu
+    # nodig dat je apart moet openen en weer sluiten.
+    st.markdown("##### 🛸 Spacetime Forge")
+    col_home, col_groep, col_module = st.columns([1, 1.6, 2.4])
+
+    with col_home:
+        if st.button("← Home", key="nav_home", width='stretch'):
             st.session_state.page = "home"
             st.rerun()
-        st.markdown("---")
 
-        if "active_module" not in st.session_state:
-            st.session_state.active_module = flat_modules[0]
+    huidige_groep = groep_van_module[st.session_state.active_module]
+    groep_namen = [g for g, _ in alle_modules]
 
-        for groep_naam, mods in alle_modules:
-            st.markdown(f"**{groep_naam}**")
-            for mod, tooltip in mods:
-                is_active = (st.session_state.active_module == mod)
-                # Actieve knop krijgt een accent kleur
-                label = f"→ {mod}" if is_active else mod
-                if st.button(label, key=f"nav_{mod}",
-                            width='stretch',
-                            type="primary" if is_active else "secondary",
-                            help=tooltip):
-                    st.session_state.active_module = mod
-                    st.rerun()
-            st.markdown("")
+    with col_groep:
+        gekozen_groep = st.selectbox(
+            "Categorie", groep_namen,
+            index=groep_namen.index(huidige_groep),
+            key="nav_groep_select",
+            label_visibility="collapsed",
+        )
 
-    active = st.session_state.active_module
+    modules_in_groep = [mod for g, mods in alle_modules if g == gekozen_groep for mod, _tip in mods]
+    if st.session_state.active_module not in modules_in_groep:
+        st.session_state.active_module = modules_in_groep[0]
+
+    with col_module:
+        gekozen_module = st.selectbox(
+            "Module", modules_in_groep,
+            index=modules_in_groep.index(st.session_state.active_module),
+            key="nav_module_select",
+            label_visibility="collapsed",
+        )
+
+    st.session_state.active_module = gekozen_module
+    active = gekozen_module
+
+    st.markdown(f"""
+    <div style="color:#64748b;font-size:0.8rem;margin-top:-0.3rem;margin-bottom:0.6rem;">
+        {tooltip_van_module.get(active, "")}
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown(f"### {active}")
     st.markdown("---")
 
@@ -1025,6 +1048,29 @@ $$L = \\frac{L_0}{γ} \\quad (\\text{lengtecontractie})$$
                     st.error(f"Fout: {e}")
             else:
                 st.info("Vul de waarden in links en klik op **Bereken**.")
+
+            with st.expander("⚠️ Wat tijdsdilatatie en lengtecontractie NIET betekenen"):
+                st.markdown("""
+Een veelgemaakte denkfout (besproken in Takeuchi's *An Illustrated Guide to Relativity*,
+§6.3 en §6.5):
+
+**Tijdsdilatatie betekent niet dat de bewegende klok "in slow motion" gaat.**
+De klok zelf ondervindt niets vreemds — voor iemand die met de klok meereist, tikt
+hij volkomen normaal. Tijdsdilatatie is een uitspraak over hoe *een ander* referentiekader
+die klok waarneemt, niet over wat er met de klok zelf "gebeurt". Er is geen absoluut
+"trager lopen" — alleen een verschil tussen waarnemers.
+
+**Lengtecontractie betekent niet dat een object fysiek in elkaar geperst wordt.**
+Er werkt geen kracht die het object samendrukt. Het is, net als bij tijdsdilatatie,
+een verschil in *meting* tussen referentiekaders — niet een fysieke vervorming die
+iedereen zou zien. Vanuit het frame van het object zelf is er niets gekrompen.
+
+**De kernboodschap:** relativistische effecten zijn altijd uitspraken over de
+*relatie* tussen twee referentiekaders, nooit een absolute eigenschap van het
+object of de klok zelf. Zodra een uitleg klinkt als "het object wordt kleiner"
+of "de klok gaat langzamer" zonder erbij te zeggen *voor wie*, is de uitleg
+onvolledig.
+                """)
 
     # ==============================
     # TAB 2 – Snelheidsoptelling
@@ -1982,6 +2028,29 @@ $$E_{k,klas} = \\frac{1}{2}mv^2$$
                     st.write(f"- Dat is equivalent aan {E0/hiroshima_j:.2g}× de atoombom op Hiroshima (~63 TJ)")
                     st.write(f"- Bij β = {fmt(beta_emc,3)} is de relativistische Eₖ een factor {Ek_rel/Ek_klas:.2f}× de klassieke Eₖ")
 
+                with st.expander("⚠️ Een veelgemaakte denkfout over E = mc²"):
+                    st.markdown("""
+Epstein noemt dit in *Relativity Visualized* (hoofdstuk 8) **"A Popular Misconception"**:
+
+**E = mc² betekent niet dat massa "verandert in" energie, alsof het twee losse dingen zijn
+die in elkaar overgaan.** Massa en energie zijn geen twee verschillende grootheden die
+zich in elkaar omzetten — massa **is** een vorm van energie. De formule is een
+*gelijkstelling*, geen omzettingsrecept.
+
+**Ook niet correct:** "een bewegend object wordt zwaarder omdat zijn massa toeneemt."
+In de moderne interpretatie (zoals in deze toolkit gebruikt) is massa een
+**invariante** eigenschap — hetzelfde in elk referentiekader. Wat toeneemt met
+snelheid is de **totale energie** (E = γmc²), niet de massa zelf. Oudere
+natuurkundeboeken gebruikten het begrip "relativistische massa" om dit effect te
+beschrijven, maar de meeste hedendaagse natuurkundigen vermijden die term omdat
+hij verwarrend is — vandaar dat deze toolkit consequent spreekt over γ (Lorentz-factor)
+en energie, niet over "toenemende massa".
+
+**Wat wél waar is:** energie heeft gewicht. Een opgewonden veer, een hete oven, of
+een doos vol fotonen weegt — heel misschien onmeetbaar weinig, maar echt — meer dan
+diezelfde dingen in koude, ontspannen toestand.
+                    """)
+
             except Exception as e:
                 st.error(f"Fout: {e}")
 
@@ -2626,6 +2695,61 @@ Op $r = r_s$ (event horizon) wordt $g_{tt} = 0$ — de tijd staat stil voor een 
 Temperatuur: $T_H = \frac{\hbar c^3}{8\pi G M k_B}$
                 """)
 
+            st.markdown("---")
+            st.markdown("#### 🌉 Wormgaten — een hypothetische kortere weg door ruimtetijd")
+            st.info("Gebaseerd op Epstein's *Relativity Visualized*, hoofdstuk 12. Let op: dit is nog altijd **puur theoretisch** — er is geen bekend natuurkundig proces dat een wormgat zou kunnen creëren of open zou kunnen houden.")
+
+            col_wg1, col_wg2 = st.columns([1.2, 1.8])
+            with col_wg1:
+                st.markdown("""
+De wiskunde achter de Schwarzschild-metriek staat, naast een zwart gat, ook een
+tweede oplossing toe: een **Einstein-Rosen-brug**. Dat is een "buis" van gekromde
+ruimtetijd die twee, in principe ver uit elkaar liggende, punten in het heelal
+(of zelfs twee verschillende heelallen) met elkaar verbindt.
+
+**Waarom je er waarschijnlijk nooit doorheen kunt:**
+- De opening (de "keel" van de brug) blijkt in de klassieke oplossing **razendsnel
+  dicht te klappen** — sneller dan licht erdoorheen zou kunnen reizen.
+- Om hem open te houden, zou je "exotische materie" met **negatieve energie** nodig
+  hebben — iets wat nog nooit is waargenomen.
+
+Wormgaten blijven daarom vooral een wiskundig gevolg van de vergelijkingen van
+Einstein, geen voorspelling die (nog) experimenteel is bevestigd.
+                """)
+            with col_wg2:
+                keel_straal = st.slider("Straal van de wormgat-keel (× rs)", 0.5, 3.0, 1.0, 0.1, key="wg_keel")
+
+                fig_wg, ax_wg = plt.subplots(figsize=(5.5, 4.5))
+                apply_style(ax_wg, fig_wg)
+
+                # Embedding-diagram: twee trechters verbonden door een keel,
+                # geïnspireerd op de klassieke wormgat-doorsnede-illustratie.
+                r = np.linspace(keel_straal, 6, 200)
+                z_boven = np.sqrt(np.maximum(r - keel_straal, 0)) * 1.4
+                z_onder = -z_boven
+
+                ax_wg.plot(r, z_boven, color=ACCENT1, linewidth=2)
+                ax_wg.plot(-r, z_boven, color=ACCENT1, linewidth=2)
+                ax_wg.plot(r, z_onder, color=ACCENT2, linewidth=2)
+                ax_wg.plot(-r, z_onder, color=ACCENT2, linewidth=2)
+
+                # Keel (throat) — markeerlijn op x=0
+                ax_wg.axvline(0, color=ACCENT4, linewidth=1, linestyle=":", alpha=0.5)
+
+                ax_wg.text(3.5, 3.5, "Heelal A", color=ACCENT1, fontsize=9, ha="center")
+                ax_wg.text(3.5, -3.5, "Heelal B\n(of ver weg\nin hetzelfde heelal)", color=ACCENT2, fontsize=8, ha="center")
+                ax_wg.text(0, 0, "keel", color=ACCENT4, fontsize=7, ha="center", va="center")
+
+                ax_wg.set_xlim(-6, 6)
+                ax_wg.set_ylim(-5, 5)
+                ax_wg.set_xlabel("Afstand vanaf de keel")
+                ax_wg.set_ylabel("Inbeddings-hoogte (schematisch)")
+                ax_wg.set_title("Doorsnede van een Einstein-Rosen-brug", color=TEXT, fontsize=9)
+                st.pyplot(fig_wg, width='stretch')
+                plt.close(fig_wg)
+
+                st.caption("Dit is een schematisch 'inbeddingsdiagram' — een gangbare manier om gekromde ruimtetijd voorstelbaar te maken, geen letterlijke ruimtelijke vorm.")
+
     # ==============================
     # TAB 13 – Gravitationele tijdsvertraging
     # ==============================
@@ -2746,6 +2870,149 @@ voordat ze gelanceerd worden: $f_{sat} = f_0 \times (1 - 4{,}46 \times 10^{-10})
 Zonder deze correctie: elke dag ~11 km fout in positiebepaling.
 
 Dit is **experimentele bevestiging** van zowel SR als GR in dagelijks gebruik.
+                """)
+
+            with st.expander("Maar waaróm veroorzaakt gekromde ruimtetijd eigenlijk zwaartekracht?"):
+                st.markdown(r"""
+Dit is de kernvraag van hoofdstuk 10 in Epstein's *Relativity Visualized* — en het
+antwoord is verrassend: **het komt door tijdsvertraging, niet door een "kracht" die
+aan je trekt.**
+
+**Het gedachte-experiment — een gat door de aarde:**
+Stel je een recht gat door het middelpunt van de aarde, helemaal naar de andere kant
+("naar China"). Laat een bal erin vallen. De bal versnelt naar het midden toe, schiet
+er voorbij, vertraagt aan de andere kant, valt weer terug — een eeuwige heen-en-weer
+beweging.
+
+**Waarom valt de bal naar beneden?**
+Diep onder de grond loopt de tijd (heel licht) langzamer dan aan het oppervlak — hoe
+dichter bij de massa, hoe zwaarder de zwaartekracht, hoe trager de klok. Een object
+dat vrij door de ruimtetijd beweegt, volgt automatisch het pad waarlangs zijn **eigen
+tijd zo veel mogelijk verstrijkt** (dit heet een geodeet). Omdat de tijd dieper in de
+grond trager loopt, "buigt" het pad van de bal in die richting af — precies zoals een
+bal op een schuine helling naar het laagste punt rolt.
+
+**Het cruciale inzicht:**
+Er is geen mysterieuze kracht die de bal naar beneden trekt. De bal volgt gewoon de
+rechtste mogelijke weg door een ruimtetijd die krom is gemaakt door de aanwezigheid
+van massa. Wat wij "zwaartekracht" noemen, is het zichtbare gevolg van die kromming —
+niet een aparte kracht die er los naast staat.
+
+Dit is precies dezelfde logica als bij de gravitationele tijdsvertraging hierboven:
+klokken lager in een zwaartekrachtsveld lopen trager, en die tragere tijd is
+letterlijk *de oorzaak* van de valbeweging die je "zwaartekracht" noemt.
+                """)
+
+    # ==============================
+    # TAB 21 – Big Bang & kosmologie
+    # ==============================
+    if active == "🌌 Big Bang & kosmologie":
+        st.subheader("🌌 Big Bang & kosmologie")
+        st.info("Verre sterrenstelsels lijken allemaal van ons weg te bewegen — en hoe verder weg, hoe sneller. Dat is het bewijs dat het heelal uitdijt, en de kern van het Big Bang-model.")
+        st.markdown("""
+Geïnspireerd op de onderwerpen uit hoofdstuk 6 van Epstein's *Relativity Visualized*
+("The Big Bang").
+        """)
+        col_left, col_right = st.columns([1.2, 1.8])
+
+        with col_left:
+            st.markdown("""
+**De Wet van Hubble:**
+$$v = H_0 \\cdot d$$
+
+Hoe verder een sterrenstelsel weg staat, hoe sneller het van ons wegbeweegt.
+Dit verband is (bij benadering) **lineair** — dubbele afstand betekent dubbele snelheid.
+
+**Roodverschuiving als bewijs:**
+$$z \\approx \\frac{v}{c}$$
+
+Licht van een wegbewegend sterrenstelsel wordt uitgerekt naar langere (rodere)
+golflengtes — hetzelfde Doppler-effect dat je in de Doppler-module tegenkwam,
+maar dan op kosmische schaal.
+            """)
+            st.markdown("---")
+            H0 = st.slider("Hubble-constante H₀ (km/s per Mpc)", 60.0, 80.0, 70.0, 1.0, key="bb_H0")
+            afstand_mpc = st.slider("Afstand tot sterrenstelsel (miljoen lichtjaar)", 1.0, 3000.0, 300.0, 10.0, key="bb_d")
+
+        with col_right:
+            # 1 Mpc ≈ 3,26 miljoen lichtjaar
+            afstand_mpc_echt = afstand_mpc / 3.26
+            v_recessie = H0 * afstand_mpc_echt  # km/s
+            z_redshift = (v_recessie * 1000) / SPEED_OF_LIGHT
+
+            c1, c2, c3 = st.columns(3)
+            for col, (lbl, val, color) in zip([c1, c2, c3], [
+                ("Afstand", f"{fmt(afstand_mpc, 0)} Mlj", ACCENT1),
+                ("Recessiesnelheid v = H₀·d", f"{v_recessie:,.0f} km/s", ACCENT2),
+                ("Roodverschuiving z ≈ v/c", fmt(z_redshift, 4), ACCENT4),
+            ]):
+                with col:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">{lbl}</div>
+                        <div class="metric-value" style="color:{color}">{val}</div>
+                    </div>""", unsafe_allow_html=True)
+
+            if v_recessie > SPEED_OF_LIGHT / 1000:
+                st.markdown(f"""
+                <div class="metric-card" style="margin-top:0.4rem;border-color:#f472b644;">
+                    <div style="color:#94a3b8;font-size:0.82rem;line-height:1.5;">
+                        ⚠️ Bij deze afstand is v &gt; c volgens de simpele formule v = H₀·d.
+                        Dat lijkt in strijd met "niets gaat sneller dan het licht" — maar dat
+                        geldt alleen voor beweging <em>door</em> de ruimte. Hier zet de <em>ruimte
+                        zelf</em> uit, wat een ander verhaal is (en waarvoor de volledige
+                        Algemene Relativiteit nodig is, niet de eenvoudige v = H₀·d-benadering
+                        die hier ter illustratie wordt gebruikt).
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("---")
+            afstanden = np.linspace(1, 3000, 300)
+            afstanden_mpc = afstanden / 3.26
+            snelheden = H0 * afstanden_mpc
+
+            fig, ax = plt.subplots(figsize=(6.5, 3.5))
+            apply_style(ax, fig)
+            ax.plot(afstanden, snelheden, color=ACCENT1, linewidth=2, label="v = H₀·d")
+            ax.scatter([afstand_mpc], [v_recessie], color=ACCENT4, s=70, zorder=5)
+            ax.axhline(SPEED_OF_LIGHT/1000, color="#ef4444", linewidth=0.8, linestyle=":", alpha=0.6, label="c")
+            ax.set_xlabel("Afstand (miljoen lichtjaar)")
+            ax.set_ylabel("Recessiesnelheid (km/s)")
+            ax.set_title("De Wet van Hubble")
+            ax.legend(fontsize=8, facecolor=BG2, edgecolor="#2d2d3d", labelcolor=TEXT)
+            st.pyplot(fig)
+            plt.close(fig)
+
+            with st.expander("Waarom lijkt elk sterrenstelsel zelf het middelpunt?"):
+                st.markdown("""
+Een bekende (en aanvankelijk verwarrende) eigenschap van een uitdijend heelal:
+**vanaf elk sterrenstelsel gezien lijken alle andere sterrenstelsels van jou weg
+te bewegen** — niet omdat jij toevallig in het midden staat, maar omdat *iedereen*
+dat ziet, overal.
+
+De klassieke analogie is een **rozijnenbrood dat rijst in de oven**: elk rozijn ziet
+alle andere rozijnen van zich vandaan bewegen, en hoe verder een rozijn weg zit, hoe
+sneller het lijkt weg te bewegen — puur omdat er meer deeg (ruimte) tussen zit dat
+uitzet. Geen enkel rozijn is het "echte" middelpunt van het rijzen.
+
+Dit heet het **kosmologisch principe**: op grote schaal ziet het heelal er ongeveer
+hetzelfde uit vanaf elk punt, in elke richting. Er is geen speciaal middelpunt van
+de Big Bang ergens in de ruimte — de Big Bang gebeurde overal tegelijk, inclusief
+hier waar jij nu zit.
+                """)
+
+            with st.expander("De kosmologische horizon: hoever kunnen we ooit kijken?"):
+                st.markdown("""
+Omdat licht een eindige snelheid heeft, kunnen we nooit verder terugkijken dan de
+tijd sinds de oerknal toestaat — dit heet de **kosmologische horizon**. Alles
+daarbuiten kan ons licht simpelweg nog niet bereikt hebben.
+
+Dit is dus geen fysieke rand van het heelal (het heelal kan oneindig groot zijn,
+of in elk geval veel groter dan wat we kunnen zien) — het is de rand van **wat wij
+kunnen waarnemen**, gegeven de eindige leeftijd van het heelal en de eindige
+lichtsnelheid. Elke dag verstrijkt er weer een dag aan leeftijd, en daarmee schuift
+de horizon (heel licht) verder naar buiten.
                 """)
 
     # ==============================
@@ -3040,11 +3307,21 @@ Kies een scenario en zie de situatie in een Minkowski-diagram.
                 "⚽ Buitenspelregel in voetbal (gelijktijdigheid)",
                 "🐢 Haas en schildpad (tijdsvertraging)",
                 "💫 Sterrenschip en supernova (causaliteit)",
+                "⚾ Tagging up in honkbal (gelijktijdigheid)",
+                "🚀 Het duel van de ruimtekruisers (lengtecontractie)",
             ],
             key="sport_keuze"
         )
 
         st.markdown("---")
+
+        # Lorentz-transformatie van een enkel event (t,x) -> (t',x') in frame met snelheid b.
+        # Lokaal gedefinieerd zodat elk scenario in deze module 'm kan gebruiken.
+        def lor_point(t, x, b):
+            if abs(b) < 1e-9:
+                return t, x
+            g = 1.0 / math.sqrt(1 - b*b)
+            return g*(t - b*x), g*(x - b*t)
 
         if sport == "🚂 Trein en tunnel (lengtecontractie)":
             st.markdown("""
@@ -3327,7 +3604,7 @@ Dit is eigenlijk de tweelingparadox in een ander jasje — maar nu met een race!
             st.pyplot(fig)
             plt.close(fig)
 
-        else:  # Sterrenschip en supernova
+        elif sport == "💫 Sterrenschip en supernova (causaliteit)":
             st.markdown("""
 **Scenario (uit Takeuchi, sectie 8.2):**
 
@@ -3433,6 +3710,172 @@ Dit gaat over **causaliteit** — het verschil tussen tijdachtige en ruimteachti
             ax_sn.legend(fontsize=8, facecolor=BG2, edgecolor="#2d2d3d",
                         labelcolor=TEXT, loc="upper left")
             st.pyplot(fig)
+            plt.close(fig)
+
+        elif sport == "⚾ Tagging up in honkbal (gelijktijdigheid)":
+            st.markdown("""
+**Scenario (uit Takeuchi, sectie 8.3.1 en 8.3.2):**
+
+Bij honkbal mag een loper pas van zijn honk vertrekken ("tagging up") op het moment
+dat de bal door de veldspeler wordt gevangen — niet eerder.
+
+De scheidsrechter bij het honk en de loper zelf bevinden zich op een zekere afstand
+van elkaar. Stel je nu voor dat de bal met relativistische snelheid gevangen wordt
+en de loper met relativistische snelheid rent: zijn de scheidsrechter en de loper
+het dan wel met elkaar eens over *het exacte moment* waarop vertrekken mag?
+
+Net als bij de buitenspelregel gaat dit over **gelijktijdigheid**: "de bal is
+gevangen" en "de loper vertrekt" zijn twee gebeurtenissen op verschillende plekken,
+en "tegelijk" betekent niet voor iedereen hetzelfde.
+            """)
+
+            beta_hb = st.slider("Snelheid waarnemer/loper β", 0.1, 0.95, 0.6, 0.01, key="hb_beta")
+            x_vangst = st.slider("Positie vangst bal (m)", 0.0, 100.0, 40.0, 5.0, key="hb_xvangst")
+            x_honk = st.slider("Positie honk (m)", 0.0, 100.0, 10.0, 5.0, key="hb_xhonk")
+
+            gamma_hb = gamma_from_beta(beta_hb)
+            # Events: V = vangst bal (t=0, x=x_vangst), H = loper vertrekt (t=0, x=x_honk)
+            # Beide gelijktijdig in het veldframe (scheidsrechter).
+            tV_l, xV_l = lor_point(0.0, x_vangst, beta_hb)
+            tH_l, xH_l = lor_point(0.0, x_honk, beta_hb)
+            delta_t_hb = tH_l - tV_l
+
+            c1, c2, c3 = st.columns(3)
+            for col, (lbl, val, color) in zip([c1, c2, c3], [
+                ("β loper", fmt(beta_hb, 3), ACCENT1),
+                ("γ", fmt(gamma_hb, 3), ACCENT1),
+                ("Δt in loperframe", f"{fmt(abs(delta_t_hb)*3.336, 2)} ns", ACCENT4),
+            ]):
+                with col:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">{lbl}</div>
+                        <div class="metric-value" style="color:{color}">{val}</div>
+                    </div>""", unsafe_allow_html=True)
+
+            st.markdown(f"""
+            <div class="metric-card" style="margin-top:0.5rem;border-color:#f472b644;">
+                <div style="color:#94a3b8;font-size:0.88rem;line-height:1.6;">
+                    Voor de scheidsrechter op het veld zijn "bal gevangen" en "loper mag
+                    vertrekken" (het honk) <strong style="color:{ACCENT3}">gelijktijdig</strong>.
+                    Voor de razendsnelle loper zelf liggen die twee momenten
+                    <strong style="color:#f472b6">{fmt(abs(delta_t_hb)*3.336, 2)} nanoseconde</strong>
+                    uit elkaar (bij honkbalafstanden een piepklein, maar niet-nul verschil —
+                    bij astronomische afstanden zou dit zomaar seconden of jaren worden).
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+            fig.patch.set_facecolor(BG)
+            for ax_hb, (title, beta_view) in zip(axes, [
+                ("Veldframe (scheidsrechter)", 0.0),
+                (f"Loperframe (β = {fmt(beta_hb,2)})", beta_hb),
+            ]):
+                apply_style(ax_hb)
+                ax_hb.set_xlim(-10, 110)
+                ax_hb.set_ylim(-3, 6)
+                ax_hb.set_xlabel("Positie (m)")
+                ax_hb.set_ylabel("Tijd t")
+                ax_hb.set_title(title, color=TEXT, fontsize=10)
+                ax_hb.axhline(0, color="#374151", linewidth=0.5, alpha=0.5)
+
+                evV = lor_point(0.0, x_vangst, beta_view)
+                evH = lor_point(0.0, x_honk, beta_view)
+
+                ax_hb.scatter([evV[1]], [evV[0]], color=ACCENT2, s=100, zorder=6, marker="*")
+                ax_hb.text(evV[1]+2, evV[0]+0.2, "⚾ Vangst", color=ACCENT2, fontsize=8)
+                ax_hb.scatter([evH[1]], [evH[0]], color=ACCENT3, s=100, zorder=6, marker="o")
+                ax_hb.text(evH[1]+2, evH[0]+0.2, "🏃 Honk", color=ACCENT3, fontsize=8)
+
+                x_sim = np.linspace(-10, 110, 100)
+                if abs(beta_view) < 0.01:
+                    ax_hb.axhline(0, color=ACCENT1, linewidth=1, linestyle="-.",
+                                 alpha=0.7, label="Simultaan (veldframe)")
+                else:
+                    t_sim_line = evV[0] + beta_view * (x_sim - evV[1])
+                    ax_hb.plot(x_sim, t_sim_line, color=ACCENT1, linewidth=1,
+                              linestyle="-.", alpha=0.7, label="Simultaan (veldframe)")
+
+                ax_hb.legend(fontsize=7, facecolor=BG2, edgecolor="#2d2d3d",
+                            labelcolor=TEXT, loc="upper left")
+
+            plt.tight_layout(pad=1.5)
+            st.pyplot(fig, width='stretch')
+            plt.close(fig)
+
+        else:  # 🚀 Het duel van de ruimtekruisers
+            st.markdown("""
+**Scenario (uit Takeuchi, sectie 8.4.2 t/m 8.4.4):**
+
+Twee ruimtekruisers, elk met eigen lengte, vliegen recht op elkaar af met hoge
+snelheid. Elke kapitein meet de lengte van de vijandelijke kruiser — en dankzij
+lengtecontractie ziet elke kapitein de ándere kruiser als korter dan zijn eigen schip,
+hoewel ze in hun eigen rustframe precies even lang zijn.
+
+Vraag: als beide kruisers precies even lang zijn (in hun eigen rustframe), wie ziet
+wie dan als "de kleinste"? Het antwoord is verrassend symmetrisch — en dat is precies
+het punt.
+            """)
+
+            beta_duel = st.slider("Relatieve snelheid tussen de kruisers β", 0.1, 0.99, 0.7, 0.01, key="duel_beta")
+            L_eigen = st.slider("Eigen lengte van beide kruisers (m)", 50.0, 500.0, 200.0, 10.0, key="duel_L")
+
+            gamma_duel = gamma_from_beta(beta_duel)
+            L_gezien = L_eigen / gamma_duel
+
+            c1, c2, c3 = st.columns(3)
+            for col, (lbl, val, color) in zip([c1, c2, c3], [
+                ("β (relatieve snelheid)", fmt(beta_duel, 3), ACCENT1),
+                ("γ", fmt(gamma_duel, 3), ACCENT1),
+                ("Lengte vd ANDER, zoals jij hem ziet", f"{fmt(L_gezien,1)} m", ACCENT2),
+            ]):
+                with col:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">{lbl}</div>
+                        <div class="metric-value" style="color:{color}">{val}</div>
+                    </div>""", unsafe_allow_html=True)
+
+            st.markdown(f"""
+            <div class="metric-card" style="margin-top:0.5rem;border-color:#34d39944;">
+                <div class="metric-label">De paradox opgelost</div>
+                <div style="color:#94a3b8;font-size:0.88rem;line-height:1.6;">
+                    Kapitein A ziet kruiser B als {fmt(L_gezien,1)} m (korter dan zijn eigen
+                    {fmt(L_eigen,0)} m). Maar kapitein B ziet het exact omgekeerd: <em>zijn</em>
+                    kruiser is voor hem {fmt(L_eigen,0)} m, en hij ziet kruiser A als
+                    {fmt(L_gezien,1)} m. <strong style="color:{ACCENT3}">Er is geen tegenspraak</strong> —
+                    beide kapiteins hebben evenveel gelijk. Lengtecontractie is wederkerig:
+                    elke waarnemer ziet de ánder gecontraheerd, nooit zichzelf. Dit is
+                    precies zoals bij snelheid: er is geen "echt" stilstaand referentiekader
+                    dat bepaalt wie "werkelijk" korter is.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            fig, ax_duel = plt.subplots(figsize=(7, 3.5))
+            apply_style(ax_duel, fig)
+            ax_duel.set_xlim(-L_eigen*0.7, L_eigen*0.7)
+            ax_duel.set_ylim(-1.5, 1.5)
+            ax_duel.set_xlabel("Positie (m)")
+            ax_duel.set_yticks([])
+            ax_duel.set_title("Beide kruisers zoals kapitein A ze ziet", color=TEXT, fontsize=10)
+
+            # Eigen schip A (rust, volledige lengte)
+            rectA = plt.Rectangle((-L_eigen/2, 0.3), L_eigen, 0.5,
+                                  facecolor="#1e3a5f", edgecolor=ACCENT1, linewidth=1.5)
+            ax_duel.add_patch(rectA)
+            ax_duel.text(0, 0.55, f"🚀 Eigen kruiser A ({fmt(L_eigen,0)} m)",
+                        ha="center", va="center", color=ACCENT1, fontsize=8)
+
+            # Gecontraheerd schip B
+            rectB = plt.Rectangle((-L_gezien/2, -0.8), L_gezien, 0.5,
+                                  facecolor="#3d1a2e", edgecolor=ACCENT2, linewidth=1.5)
+            ax_duel.add_patch(rectB)
+            ax_duel.text(0, -0.55, f"🚀 Kruiser B, gecontraheerd ({fmt(L_gezien,1)} m)",
+                        ha="center", va="center", color=ACCENT2, fontsize=8)
+
+            st.pyplot(fig, width='stretch')
             plt.close(fig)
 
     # ==============================
@@ -3849,6 +4292,38 @@ Er bestaat ook een frame waarin de volgorde omgedraaid is.
 Geen enkel signaal kan de events verbinden — causaliteit is onmogelijk.
 
 De lichtkegel beschermt causaliteit: oorzaak komt altijd vóór gevolg.
+            """)
+
+        with st.expander("Waarom zou sneller-dan-licht-reizen causaliteit breken?"):
+            st.markdown(r"""
+Dit argument komt uit Takeuchi's *An Illustrated Guide to Relativity*, hoofdstuk 5
+("Causality") — en is een van de sterkste redenen waarom fysici geloven dat niets
+sneller dan het licht kan reizen.
+
+**Het probleem met "instantane communicatie":**
+Stel dat je een signaal sneller dan het licht zou kunnen versturen — bijvoorbeeld
+ogenblikkelijk. Twee gebeurtenissen die zo'n signaal verbindt, liggen per definitie
+**ruimteachtig** ten opzichte van elkaar (ze liggen buiten elkaars lichtkegel).
+
+Maar bij een ruimteachtig interval bestaat er, zoals hierboven uitgelegd, altijd een
+referentiekader waarin de **volgorde omgedraaid is**. Vanuit het ene frame gezien
+verstuur je het signaal eerst en komt het later aan; vanuit een ander, even geldig
+frame gezien komt het signaal **aan vóórdat het verstuurd is**.
+
+**Waarom dat een probleem is:**
+Als het signaal informatie draagt die een handeling kan veroorzaken — bijvoorbeeld
+"verstuur dit signaal terug zodra je het ontvangt" — dan zou je in sommige
+referentiekaders een gebeurtenis kunnen veroorzaken die al heeft plaatsgevonden
+vóór de oorzaak. Dat is niet zomaar vreemd; het maakt oorzaak-en-gevolg logisch
+inconsistent (vergelijkbaar met de klassieke "grootvaderparadox" uit tijdreis-verhalen).
+
+**De conclusie:**
+Omdat de volgorde van ruimteachtig-gescheiden gebeurtenissen frame-afhankelijk is,
+kan een signaal dat sneller dan het licht reist in het ene frame een oorzaak zijn,
+en in een ander frame een gevolg. Om die logische tegenstrijdigheid te voorkomen,
+moet gelden: geen enkel causaal signaal (informatie, materie, invloed) kan sneller
+dan het licht reizen. Alleen gebeurtenissen binnen elkaars lichtkegel — waar de
+volgorde in álle referentiekaders hetzelfde is — kunnen elkaar veroorzaken.
             """)
 
     # ==============================
@@ -4284,6 +4759,14 @@ SLIDES = [
         "type": "link_module",
         "vraag": "Hoe klein zou de aarde moeten worden om een zwart gat te worden?",
         "module_key": "🕳 Zwarte gaten",
+    },
+    {
+        "titel": "Het heelal dijt uit",
+        "ondertitel": "Waarom alles van ons lijkt weg te bewegen",
+        "intro": "Hoe verder een sterrenstelsel weg staat, hoe sneller het van ons wegbeweegt. Dat is geen toeval en jij staat niet toevallig in het midden — het is het bewijs dat de ruimte zelf uitdijt.",
+        "type": "link_module",
+        "vraag": "Hoe snel dijt het heelal eigenlijk uit?",
+        "module_key": "🌌 Big Bang & kosmologie",
     },
 ]
 
