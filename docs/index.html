@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+    <!-- Dit zijn de instellingen die iOS nodig heeft om de app chrome-loos
+         (zonder Safari-balken) te openen vanaf het beginscherm. Ze staan hier
+         in de allereerste pagina die geladen wordt, in tegenstelling tot de
+         Streamlit-app zelf, waar Streamlit's eigen 'Voeg toe aan beginscherm'
+         een bekende bug heeft. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Spacetime Forge">
+    <meta name="theme-color" content="#0a0a0f">
+
+    <title>Spacetime Forge</title>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #0a0a0f;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .wrap {
+            padding: 2rem;
+        }
+        .rocket {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 0 12px #60a5fa88);
+        }
+        .titel {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .titel .highlight { color: #60a5fa; }
+        .sub {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        a.knop {
+            display: inline-block;
+            background: #1e3a5f;
+            color: #60a5fa;
+            border: 1px solid #60a5fa;
+            border-radius: 10px;
+            padding: 0.8rem 1.6rem;
+            text-decoration: none;
+            font-weight: 500;
+        }
+    </style>
+
+    <!-- Meteen doorschakelen naar de echte app, binnen hetzelfde venster
+         (zodat de chrome-loze weergave behouden blijft). De zichtbare knop
+         hieronder is de terugval-optie voor het geval de browser automatisch
+         doorschakelen blokkeert. -->
+    <script>
+        window.location.replace("https://relativity-toolkit.streamlit.app");
+    </script>
+</head>
+<body>
+    <div class="wrap">
+        <div class="rocket">🛸</div>
+        <div class="titel">Spacetime <span class="highlight">Forge</span></div>
+        <div class="sub">Een moment geduld, de toolkit wordt geopend&hellip;</div>
+        <a class="knop" href="https://relativity-toolkit.streamlit.app">Open de toolkit</a>
+    </div>
+</body>
+</html>
