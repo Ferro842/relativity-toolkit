@@ -742,6 +742,80 @@ def render_home():
 
 
 # ==========================
+# Leerpad — vaste volgorde van simpel naar complex
+# ==========================
+
+LEERPAD = [
+    "⏱ Lorentz & tijdsvertraging",
+    "➕ Snelheidsoptelling",
+    "🚀 Scenario-simulator",
+    "👯 Tweelingparadox",
+    "📐 Minkowski-diagram",
+    "💥 Lichtkegel",
+    "🚂 Gelijktijdigheid",
+    "🕐 Kloksynchronisatie",
+    "💡 Lichtklok",
+    "🔵 Epstein-cirkel",
+    "🏛 Galileï vs Einstein",
+    "🔷 Spacetime-volume",
+    "🌈 Doppler-effect",
+    "⚡ E=mc²",
+    "⚽ Sport-scenarios",
+    "🔄 Lorentz-transformaties",
+    "💫 Relativistisch impuls",
+    "🕳 Zwarte gaten",
+    "🛰 Gravitationele tijdvertraging",
+    "📖 Formulekaart",
+]
+
+
+def render_leerpad_navigatie(actieve_module: str):
+    """Toont Vorige/Volgende-knoppen onderaan elke module, volgens het vaste leerpad."""
+    if actieve_module not in LEERPAD:
+        return
+    idx = LEERPAD.index(actieve_module)
+    n = len(LEERPAD)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="color:#475569;font-size:0.78rem;text-align:center;margin-bottom:0.6rem;">
+        Stap {idx + 1} van {n} in het leerpad
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_prev, col_mid, col_next = st.columns([1.3, 2, 1.3])
+    with col_prev:
+        if idx > 0:
+            vorige = LEERPAD[idx - 1]
+            if st.button(f"◀ {vorige}", key="leerpad_vorige", width='stretch'):
+                st.session_state.active_module = vorige
+                st.rerun()
+    with col_mid:
+        st.markdown(f"""
+        <div style="text-align:center;padding-top:0.5rem;">
+            <div style="background:#111118;border:1px solid #1e1e2e;border-radius:20px;
+                        height:6px;overflow:hidden;">
+                <div style="background:#60a5fa;height:100%;width:{(idx+1)/n*100:.0f}%;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_next:
+        if idx < n - 1:
+            volgende = LEERPAD[idx + 1]
+            if st.button(f"{volgende} ▶", key="leerpad_volgende",
+                        width='stretch', type="primary"):
+                st.session_state.active_module = volgende
+                st.rerun()
+        else:
+            st.markdown("""
+            <div style="text-align:center;color:#34d399;font-size:0.85rem;padding-top:0.6rem;">
+                🎉 Einde van het leerpad
+            </div>
+            """, unsafe_allow_html=True)
+
+
+# ==========================
 # TOOLKIT PAGINA
 # ==========================
 
@@ -818,6 +892,7 @@ def render_toolkit():
     # ==============================
     if active == "⏱ Lorentz & tijdsvertraging":
         st.subheader("Lorentz-factor, tijdsvertraging en lengtecontractie")
+        st.info("In het kort: hoe sneller je beweegt, hoe langzamer je klok tikt en hoe korter afstanden worden. Vul hieronder een snelheid in en zie precies hoeveel.")
         col_left, col_right = st.columns([1.1, 1.9])
 
         with col_left:
@@ -956,6 +1031,7 @@ $$L = \\frac{L_0}{γ} \\quad (\\text{lengtecontractie})$$
     # ==============================
     if active == "➕ Snelheidsoptelling":
         st.subheader("Relativistische snelheidsoptelling")
+        st.info("Bij lage snelheden tel je snelheden gewoon op. Bij hoge snelheden werkt dat niet meer — de uitkomst blijft altijd onder de lichtsnelheid, hoe hard je ook optelt.")
         col_left, col_right = st.columns([1.1, 1.9])
 
         with col_left:
@@ -1049,6 +1125,7 @@ De uitkomst blijft altijd $|u| < c$.
     # ==============================
     if active == "🚀 Scenario-simulator":
         st.subheader("Scenario-simulator")
+        st.info("Beschrijf een reis in gewone taal (bijvoorbeeld 'een raket met 0,8c') en de tool haalt er zelf de snelheid en tijd uit om te berekenen hoeveel de reiziger veroudert.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -1168,6 +1245,7 @@ De tool herkent automatisch de snelheid (in **c**) en tijd (in **jaar**).
     # ==============================
     if active == "📐 Minkowski-diagram":
         st.markdown("## Minkowski-diagram")
+        st.info("Een Minkowski-diagram tekent tijd en ruimte in één plaatje: elke lijn is de 'route' die een object door ruimte én tijd aflegt. Zo zie je in één oogopslag wie sneller beweegt en hoe klokken uit de pas lopen.")
 
         # Modus selector bovenaan
         mk_mode = st.radio(
@@ -1552,6 +1630,7 @@ Hoe groter $v$ of $L$, hoe groter het tijdsverschil in het treinframe.
     # ==============================
     if active == "👯 Tweelingparadox":
         st.subheader("De tweelingparadox")
+        st.info("Eén tweeling blijft thuis, de ander maakt een snelle ruimtereis. Bij terugkomst is de reizende tweeling écht jonger — geen goocheltruc, maar een meetbaar gevolg van tijdsvertraging.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -1664,6 +1743,7 @@ in vliegtuigen (Hafele-Keating experiment, 1971).
     # ==============================
     if active == "🌈 Doppler-effect":
         st.subheader("Relativistisch Doppler-effect")
+        st.info("Een lichtbron die naar je toe beweegt lijkt blauwer, eentje die wegbeweegt lijkt roder — net zoals de toon van een ambulancesirene verandert, maar dan met licht.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -1777,6 +1857,7 @@ bewijst dat het universum uitdijt (Hubble, 1929).
     # ==============================
     if active == "⚡ E=mc²":
         st.subheader("E = mc² — massa-energie equivalentie")
+        st.info("Massa en energie zijn twee kanten van dezelfde medaille. Zelfs een heel klein beetje massa staat gelijk aan een enorme hoeveelheid energie — reken zelf uit hoeveel er in alledaagse voorwerpen zit.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -1909,6 +1990,7 @@ $$E_{k,klas} = \\frac{1}{2}mv^2$$
     # ==============================
     if active == "💡 Lichtklok":
         st.subheader("💡 Lichtklok — waarom tijd vertraagt")
+        st.info("Het simpelste bewijs voor tijdsvertraging: een lichtstraaltje dat op en neer kaatst tussen twee spiegels. Beweegt die klok, dan legt het licht een langere weg af — en dus tikt de klok langzamer.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -2021,6 +2103,7 @@ Dit is de tijdsvertraging — puur geometrie in ruimtetijd.
     # ==============================
     if active == "🚂 Gelijktijdigheid":
         st.subheader("🚂 Relativiteit van gelijktijdigheid")
+        st.info("Twee gebeurtenissen die voor jou tegelijk plaatsvinden, hoeven dat voor iemand anders die beweegt niet te zijn. Misschien wel het meest verrassende idee van Einstein.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -2154,6 +2237,7 @@ en gelijktijdig in één frame, zijn niet gelijktijdig in een ander frame.
     # ==============================
     if active == "🔄 Lorentz-transformaties":
         st.subheader("🔄 Lorentz-transformaties")
+        st.info("Hier reken je zelf de coördinaten van een gebeurtenis (tijd + plaats) om naar een ander, bewegend referentiekader — de wiskundige kern van alles hierboven.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -2280,6 +2364,7 @@ Alle waarnemers meten dezelfde waarde, ongeacht hun snelheid.
     # ==============================
     if active == "💫 Relativistisch impuls":
         st.subheader("💫 Relativistisch impuls en energie")
+        st.info("Bij hoge snelheid gedraagt impuls (en dus ook energie) zich anders dan je op school leerde. Zelfs massaloze deeltjes zoals licht hebben impuls.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -2386,6 +2471,7 @@ Dit **stralingsdruk** is meetbaar en wordt gebruikt in zonne-zeilen.
     # ==============================
     if active == "🕳 Zwarte gaten":
         st.subheader("🕳 Zwarte gaten — Schwarzschild-straal")
+        st.info("Een zwart gat is simpelweg zoveel massa in zo weinig ruimte gepropt, dat zelfs licht niet meer kan ontsnappen. Bereken zelf hoe groot die grens is voor verschillende objecten.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -2545,6 +2631,7 @@ Temperatuur: $T_H = \frac{\hbar c^3}{8\pi G M k_B}$
     # ==============================
     if active == "🛰 Gravitationele tijdvertraging":
         st.subheader("🛰 Gravitationele tijdsvertraging — GPS als voorbeeld")
+        st.info("Zwaartekracht buigt niet alleen ruimte, maar ook tijd. Daardoor lopen klokken hoog in de lucht (zoals in GPS-satellieten) net iets sneller dan klokken op de grond.")
         col_left, col_right = st.columns([1.2, 1.8])
 
         with col_left:
@@ -2666,6 +2753,7 @@ Dit is **experimentele bevestiging** van zowel SR als GR in dagelijks gebruik.
     # ==============================
     if active == "🏛 Galileï vs Einstein":
         st.subheader("🏛 Galileï vs Einstein — twee soorten ruimtetijd")
+        st.info("Newton dacht dat tijd voor iedereen hetzelfde verloopt. Einstein liet zien dat dat alleen bij lage snelheden klopt — dit vergelijkt de twee wereldbeelden naast elkaar.")
         st.markdown("""
 Beide theorieën gebruiken ruimtetijddiagrammen, maar de regels zijn anders.
 Sleep de snelheidsslider en zie live hoe de twee transformaties van elkaar verschillen.
@@ -2817,6 +2905,7 @@ dezelfde lichtsnelheid $c$ meet.
     # ==============================
     if active == "🔷 Spacetime-volume":
         st.subheader("🔷 Spacetime-volume conservatie")
+        st.info("Een verrassend feit dat de hele Lorentz-transformatie verklaart: hoe je een gebied in ruimtetijd ook vervormt, het oppervlak blijft altijd gelijk.")
         st.markdown("""
 Een kernidee uit het boek van Takeuchi: de Lorentz-transformatie **behoudt het spacetime-oppervlak**.
 Een vierkant in het ene frame wordt een diamant in het andere — maar met *gelijk oppervlak*.
@@ -2938,6 +3027,7 @@ Dit is de elegantste manier om te zien *waarom* SR precies zo is als het is.
     # ==============================
     if active == "⚽ Sport-scenarios":
         st.subheader("⚽ Sport-scenario\'s — relativiteit in beweging")
+        st.info("Vier alledaagse situaties — buitenspel, een trein door een tunnel, een race, een supernova — laten zien hoe relativiteit (in extreme vorm) je intuïtie op zijn kop zet.")
         st.markdown("""
 Gebaseerd op de problemen uit hoofdstuk 8 van Takeuchi\'s boek.
 Kies een scenario en zie de situatie in een Minkowski-diagram.
@@ -3350,6 +3440,7 @@ Dit gaat over **causaliteit** — het verschil tussen tijdachtige en ruimteachti
     # ==============================
     if active == "🔵 Epstein-cirkel":
         st.subheader("🔵 Epstein-cirkel — ruimtetijdsnelheid")
+        st.info("Een andere, intuïtieve manier om tijdsvertraging te begrijpen: iedereen beweegt altijd met exact de lichtsnelheid door ruimtetijd. De vraag is alleen hoeveel daarvan door de ruimte gaat, en hoeveel door de tijd.")
         st.markdown("""
 Het kernidee van Epstein: **elk object beweegt altijd met snelheid c door ruimtetijd**.
 De vraag is alleen: hoeveel van die snelheid gaat door de *ruimte*, en hoeveel door de *tijd*?
@@ -3553,6 +3644,7 @@ Dit is precies $\tau = t/\gamma$ — maar nu zichtbaar als geometrie van een cir
     # ==============================
     if active == "💥 Lichtkegel":
         st.subheader("💥 Interactieve lichtkegel — causaliteit in ruimtetijd")
+        st.info("Niet elke gebeurtenis kan elkaar beïnvloeden. De lichtkegel laat zien welke gebeurtenissen wél een oorzaak-gevolg-relatie kunnen hebben, en welke voor altijd los van elkaar staan.")
         st.markdown("""
 Klik een event op de tijdlijn en zie direct welke andere events causaal bereikbaar zijn.
 De lichtkegel scheidt **verleden**, **toekomst** en **ruimteachtig** (niet bereikbaar met causale signalen).
@@ -3764,6 +3856,7 @@ De lichtkegel beschermt causaliteit: oorzaak komt altijd vóór gevolg.
     # ==============================
     if active == "🕐 Kloksynchronisatie":
         st.subheader("🕐 Kloksynchronisatie — Einstein's methode")
+        st.info("Hoe weet je zeker dat twee ver uit elkaar staande klokken gelijk lopen? Einstein bedacht een methode met lichtsignalen — die perfect werkt, behalve voor iemand die beweegt.")
         st.markdown("""
 Hoe synchroniseer je twee klokken die ver van elkaar staan?
 Einstein bedacht een methode met lichtsignalen — maar die werkt alleen binnen één frame.
@@ -3943,6 +4036,7 @@ waarbij $L$ de afstand tussen de klokken is in het rustframe.
     # ==============================
     if active == "📖 Formulekaart":
         st.subheader("📖 Formulekaart — speciale relativiteit")
+        st.info("Alle formules uit deze toolkit overzichtelijk bij elkaar, handig om snel iets op te zoeken zonder door de modules te hoeven klikken.")
         st.markdown("<br>", unsafe_allow_html=True)
 
         fc1, fc2 = st.columns(2)
@@ -4031,6 +4125,8 @@ $$ds^2 = c^2 dt^2 - dx^2 - dy^2 - dz^2$$
 | Straal aarde | R⊕ | 6,371 × 10⁶ m |
         """)
 
+    render_leerpad_navigatie(active)
+
 
 # ==========================
 # PRESENTATIE-MODUS
@@ -4043,6 +4139,7 @@ SLIDES = [
         "intro": "Dit is het meest verrassende inzicht van Einstein. Jij beweegt op dit moment met precies de snelheid van het licht — maar bijna volledig door de **tijd**, niet door de ruimte.",
         "type": "epstein",
         "vraag": "Hoe snel beweeg jij door de ruimte?",
+        "module_key": "🔵 Epstein-cirkel",
     },
     {
         "titel": "Sneller door de ruimte = langzamer door de tijd",
@@ -4050,6 +4147,7 @@ SLIDES = [
         "intro": "Hoe meer snelheid je door de ruimte gebruikt, hoe minder er overblijft voor de tijd. Je klok loopt dan langzamer — niet als een illusie, maar echt.",
         "type": "tijdsvertraging",
         "vraag": "Wat als je met 80% van de lichtsnelheid reist?",
+        "module_key": "⏱ Lorentz & tijdsvertraging",
     },
     {
         "titel": "De tweelingparadox",
@@ -4057,6 +4155,7 @@ SLIDES = [
         "intro": "Stel je hebt een tweelingbroer die in een raket stapt en op grote snelheid naar een ster vliegt. Als hij terugkomt, is hij **jonger** dan jij. Dit is geen sciencefiction — het is bewezen.",
         "type": "tweeling",
         "vraag": "Hoeveel jonger is de astronaut?",
+        "module_key": "👯 Tweelingparadox",
     },
     {
         "titel": "GPS werkt dankzij relativiteit",
@@ -4064,6 +4163,7 @@ SLIDES = [
         "intro": "GPS-satellieten bewegen snel (tijdvertraging door snelheid) én bevinden zich hoog (tijdversnelling door minder zwaartekracht). Per dag telt dit op tot 38 microseconde. Zonder correctie: jouw navigatie is na één dag 11 km de fout in.",
         "type": "gps",
         "vraag": "Welk effect is groter?",
+        "module_key": "🛰 Gravitationele tijdvertraging",
     },
     {
         "titel": "E = mc²",
@@ -4071,6 +4171,7 @@ SLIDES = [
         "intro": "In een paperclip van 1 gram zit genoeg energie om een stad van stroom te voorzien gedurende een jaar. Dat is wat E = mc² betekent. De c² maakt de hoeveelheid gigantisch.",
         "type": "emc2",
         "vraag": "Hoeveel energie zit er in alledaagse objecten?",
+        "module_key": "⚡ E=mc²",
     },
     {
         "titel": "Licht heeft altijd dezelfde snelheid",
@@ -4078,6 +4179,111 @@ SLIDES = [
         "intro": "Of je nu stilstaat of met 99% van de lichtsnelheid vliegt — licht nadert je altijd met exact 299.792.458 m/s. Dit lijkt onmogelijk, maar het is de fundering van de hele relativiteitstheorie.",
         "type": "lichtsnelheid",
         "vraag": "Hoe kan dat kloppen?",
+        "module_key": "➕ Snelheidsoptelling",
+    },
+    {
+        "titel": "Beschrijf het gewoon in normale taal",
+        "ondertitel": "Geen formules nodig om te beginnen",
+        "intro": "Typ een zin als 'een raket met 0,8c die 10 jaar reist' en de tool herkent zelf de snelheid en de tijd — en rekent voor je uit hoeveel de reiziger veroudert.",
+        "type": "link_module",
+        "vraag": "Wat gebeurt er bij jouw eigen scenario?",
+        "module_key": "🚀 Scenario-simulator",
+    },
+    {
+        "titel": "Ruimte en tijd in één plaatje",
+        "ondertitel": "Het Minkowski-diagram",
+        "intro": "Elke lijn in dit diagram is de 'route' die iets aflegt door ruimte én tijd tegelijk. Zo zie je in één oogopslag wie sneller beweegt, en hoe klokken van elkaar verschillen.",
+        "type": "link_module",
+        "vraag": "Hoe verandert het plaatje als je van referentiekader wisselt?",
+        "module_key": "📐 Minkowski-diagram",
+    },
+    {
+        "titel": "Wat kan elkaar wel en niet beïnvloeden?",
+        "ondertitel": "Causaliteit in ruimtetijd",
+        "intro": "Niet elke gebeurtenis kan een andere beïnvloeden. De lichtkegel laat precies zien welke gebeurtenissen een oorzaak-gevolg-relatie kunnen hebben — en welke voor altijd van elkaar gescheiden blijven.",
+        "type": "link_module",
+        "vraag": "Ligt een gebeurtenis binnen of buiten jouw lichtkegel?",
+        "module_key": "💥 Lichtkegel",
+    },
+    {
+        "titel": "'Tegelijk' bestaat niet voor iedereen",
+        "ondertitel": "De relativiteit van gelijktijdigheid",
+        "intro": "Twee gebeurtenissen die voor jou op hetzelfde moment plaatsvinden, hoeven dat voor iemand die beweegt niet te zijn. Misschien wel het meest verrassende idee van Einstein.",
+        "type": "link_module",
+        "vraag": "Wie heeft er dan gelijk?",
+        "module_key": "🚂 Gelijktijdigheid",
+    },
+    {
+        "titel": "Hoe zet je twee verre klokken gelijk?",
+        "ondertitel": "Einstein's methode met lichtsignalen",
+        "intro": "Stuur een lichtsignaal heen en terug en stel de andere klok in op het gemiddelde — perfect, zolang jij stilstaat. Beweeg je, dan blijken de klokken toch niet synchroon te lopen.",
+        "type": "link_module",
+        "vraag": "Hoe groot is de fout als je zelf beweegt?",
+        "module_key": "🕐 Kloksynchronisatie",
+    },
+    {
+        "titel": "Het simpelste bewijs voor tijdsvertraging",
+        "ondertitel": "Een lichtstraaltje tussen twee spiegels",
+        "intro": "Stel je een klok voor die tikt doordat licht op en neer kaatst tussen twee spiegels. Beweegt die klok, dan legt het licht een langere, schuine weg af — en dus tikt de klok langzamer.",
+        "type": "link_module",
+        "vraag": "Hoe langzaam kan een bewegende klok tikken?",
+        "module_key": "💡 Lichtklok",
+    },
+    {
+        "titel": "Newton had het bijna goed",
+        "ondertitel": "Twee wereldbeelden naast elkaar",
+        "intro": "Newton dacht dat tijd voor iedereen hetzelfde verloopt. Dat klopt bijna — bij lage snelheden. Zie hier live hoe de twee theorieën uit elkaar gaan lopen naarmate je sneller beweegt.",
+        "type": "link_module",
+        "vraag": "Bij welke snelheid wordt het verschil zichtbaar?",
+        "module_key": "🏛 Galileï vs Einstein",
+    },
+    {
+        "titel": "Een verrassend behoud-principe",
+        "ondertitel": "Oppervlak dat nooit verandert",
+        "intro": "Hoe je een gebied in ruimtetijd ook vervormt door te versnellen — het oppervlak blijft altijd exact gelijk. Dit simpele feit verklaart in feite waaróm de Lorentz-transformatie precies zo werkt.",
+        "type": "link_module",
+        "vraag": "Waarom is dat zo belangrijk?",
+        "module_key": "🔷 Spacetime-volume",
+    },
+    {
+        "titel": "Waarom sterren van kleur veranderen",
+        "ondertitel": "Rood- en blauwverschuiving",
+        "intro": "Een lichtbron die naar je toe komt, lijkt blauwer. Eentje die wegbeweegt, lijkt roder — precies zoals de toon van een ambulancesirene verandert, maar dan met licht.",
+        "type": "link_module",
+        "vraag": "Hoe hard moet iets bewegen voordat je het écht ziet?",
+        "module_key": "🌈 Doppler-effect",
+    },
+    {
+        "titel": "Relativiteit als je hem écht zou merken",
+        "ondertitel": "Buitenspel, tunnels, races en supernova's",
+        "intro": "Vier alledaagse situaties, maar dan met relativistische snelheden: past een trein wel of niet in een tunnel? Is een speler buitenspel? Wie is er ouder — de haas of de schildpad?",
+        "type": "link_module",
+        "vraag": "Welk scenario verrast je het meest?",
+        "module_key": "⚽ Sport-scenarios",
+    },
+    {
+        "titel": "Reken zelf om tussen referentiekaders",
+        "ondertitel": "De wiskundige kern van alles",
+        "intro": "Elke tijdsvertraging, lengtecontractie en gelijktijdigheidsverschil die je hierboven zag, komt uit precies dezelfde twee formules. Hier reken je ze zelf uit.",
+        "type": "link_module",
+        "vraag": "Wat verandert er als je zelf een gebeurtenis invoert?",
+        "module_key": "🔄 Lorentz-transformaties",
+    },
+    {
+        "titel": "Zelfs licht heeft impuls",
+        "ondertitel": "Impuls en energie bij hoge snelheid",
+        "intro": "Bij hoge snelheid gedraagt impuls zich anders dan je op school leerde. En zelfs massaloze deeltjes zoals fotonen blijken impuls te hebben — genoeg om zonne-zeilen mee aan te drijven.",
+        "type": "link_module",
+        "vraag": "Hoeveel impuls heeft licht eigenlijk?",
+        "module_key": "💫 Relativistisch impuls",
+    },
+    {
+        "titel": "De grens waarachter niets ontsnapt",
+        "ondertitel": "Schwarzschild-straal",
+        "intro": "Een zwart gat is simpelweg zoveel massa in zo weinig ruimte gepropt, dat zelfs licht niet meer kan ontsnappen. Bereken zelf hoe groot die grens is — voor de zon, de aarde, of jezelf.",
+        "type": "link_module",
+        "vraag": "Hoe klein zou de aarde moeten worden om een zwart gat te worden?",
+        "module_key": "🕳 Zwarte gaten",
     },
 ]
 
@@ -4168,14 +4374,47 @@ def render_slide(slide_idx):
         _pres_emc2()
     elif slide["type"] == "lichtsnelheid":
         _pres_lichtsnelheid()
+    elif slide["type"] == "link_module":
+        _pres_link_module(slide["module_key"])
 
-    # Toolkit link onderaan
+    # Toolkit link onderaan — springt direct naar de bijbehorende module
     st.markdown("<br>", unsafe_allow_html=True)
+    module_key = slide.get("module_key")
+    if module_key:
+        col_link_l, col_link_m, col_link_r = st.columns([1, 2, 1])
+        with col_link_m:
+            if st.button(f"🛸 Open '{module_key}' in de Toolkit", key=f"pres_link_{slide_idx}",
+                        width='stretch'):
+                st.session_state.page = "toolkit"
+                st.session_state.active_module = module_key
+                st.rerun()
+    else:
+        st.markdown("""
+        <div style="text-align:center;color:#334155;font-size:0.8rem;">
+            Wil je dieper duiken? Open de 🛸 Toolkit voor alle berekeningen en interactieve modules.
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def _pres_link_module(module_key: str):
+    """
+    Generieke, lichtgewicht slide voor onderwerpen die nog geen eigen
+    op-maat-gemaakte animatie hebben. Toont een uitnodigende kaart die
+    duidelijk maakt dat de volledige, interactieve versie één tik verderop
+    in de Toolkit staat.
+    """
     st.markdown(f"""
-    <div style="text-align:center;color:#334155;font-size:0.8rem;">
-        Wil je dieper duiken? Open de
-        <span style="color:#60a5fa;cursor:pointer;">🛸 Toolkit</span>
-        voor alle berekeningen en interactieve modules.
+    <div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:16px;
+                padding:2.2rem;text-align:center;margin:1rem 0 1.5rem 0;">
+        <div style="font-size:2.6rem;margin-bottom:0.6rem;">{module_key.split(' ')[0]}</div>
+        <div style="color:#60a5fa;font-size:1.05rem;font-weight:500;">
+            Deze module is volledig interactief
+        </div>
+        <div style="color:#64748b;font-size:0.88rem;margin-top:0.5rem;max-width:480px;
+                    margin-left:auto;margin-right:auto;line-height:1.6;">
+            Sliders, invoervelden en live grafieken vind je in de Toolkit —
+            open 'm hieronder om zelf te experimenteren met deze module.
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
