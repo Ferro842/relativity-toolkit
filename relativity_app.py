@@ -1,5 +1,6 @@
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
 import re
 import math
@@ -186,6 +187,40 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+
+def inject_pwa_meta():
+    """
+    Voegt de meta-tags toe die iOS/Safari nodig heeft om de app schermvullend
+    te openen (zonder adresbalk/deelbalk) wanneer die via 'Zet op beginscherm'
+    is toegevoegd. Streamlit biedt geen directe manier om <head> aan te passen,
+    dus dit gebeurt via een onzichtbare component die de tags in het
+    bovenliggende document plaatst.
+    """
+    components.html(
+        """
+        <script>
+        (function() {
+            var head = window.parent.document.getElementsByTagName('head')[0];
+            function addMeta(name, content) {
+                if (window.parent.document.querySelector('meta[name="' + name + '"]')) {
+                    return;
+                }
+                var meta = window.parent.document.createElement('meta');
+                meta.name = name;
+                meta.content = content;
+                head.appendChild(meta);
+            }
+            addMeta('apple-mobile-web-app-capable', 'yes');
+            addMeta('mobile-web-app-capable', 'yes');
+            addMeta('apple-mobile-web-app-status-bar-style', 'black-translucent');
+            addMeta('apple-mobile-web-app-title', 'Spacetime Forge');
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def inject_css():
@@ -533,6 +568,7 @@ def inject_css():
 
 
 inject_css()
+inject_pwa_meta()
 
 
 # ==========================
@@ -710,41 +746,44 @@ def render_home():
 # ==========================
 
 def render_toolkit():
-    # Sidebar navigatie
+    # Sidebar navigatie — thematisch gegroepeerd (i.p.v. ontwikkelfases),
+    # met per module een korte tooltip die uitlegt waarom het interessant is.
     alle_modules = [
-        ("📚 Fase 1 — Basis SR", [
-            "⏱ Lorentz & tijdsvertraging",
-            "➕ Snelheidsoptelling",
-            "🚀 Scenario-simulator",
-            "📐 Minkowski-diagram",
-            "👯 Tweelingparadox",
-            "🌈 Doppler-effect",
-            "⚡ E=mc²",
+        ("🎯 Begin hier", [
+            ("⏱ Lorentz & tijdsvertraging", "De basisformule: hoe tijd en lengte veranderen bij hoge snelheid"),
+            ("➕ Snelheidsoptelling", "Waarom 0,9c + 0,9c nooit sneller dan c wordt"),
+            ("🚀 Scenario-simulator", "Beschrijf een situatie in gewone taal, krijg direct de berekening"),
+            ("👯 Tweelingparadox", "De klassieker: waarom de reizende tweeling jonger terugkomt"),
         ]),
-        ("📗 Fase 1 — Epstein & Takeuchi", [
-            "🔵 Epstein-cirkel",
-            "💥 Lichtkegel",
-            "🕐 Kloksynchronisatie",
-            "💡 Lichtklok",
-            "🚂 Gelijktijdigheid",
-            "🏛 Galileï vs Einstein",
-            "🔷 Spacetime-volume",
-            "⚽ Sport-scenarios",
+        ("🌌 Ruimtetijd doorgronden", [
+            ("📐 Minkowski-diagram", "Worldlines, referentiekaders en lichtkegels in één grafiek"),
+            ("💥 Lichtkegel", "Wat kan elkaar beïnvloeden, en wat niet? Causaliteit visueel"),
+            ("🚂 Gelijktijdigheid", "Waarom 'tegelijkertijd' niet voor iedereen hetzelfde betekent"),
+            ("🕐 Kloksynchronisatie", "Hoe synchroniseer je klokken die ver uit elkaar staan?"),
+            ("💡 Lichtklok", "Het simpelste gedachte-experiment achter tijdsvertraging"),
+            ("🔵 Epstein-cirkel", "Iedereen beweegt met snelheid c — door de ruimte óf door de tijd"),
+            ("🏛 Galileï vs Einstein", "Het verschil tussen klassieke en relativistische ruimtetijd"),
+            ("🔷 Spacetime-volume", "Waarom de Lorentz-transformatie precies zo werkt als hij werkt"),
         ]),
-        ("📙 Fase 2 — Taylor & Wheeler", [
-            "🔄 Lorentz-transformaties",
-            "💫 Relativistisch impuls",
+        ("🎨 Effecten & toepassingen", [
+            ("🌈 Doppler-effect", "Rood- en blauwverschuiving van bewegende lichtbronnen"),
+            ("⚡ E=mc²", "Hoeveel energie zit er eigenlijk verborgen in massa?"),
+            ("⚽ Sport-scenarios", "Buitenspel, tunnels en rennende dieren als relativiteit-puzzels"),
         ]),
-        ("📕 Fase 3-4 — Richting GR", [
-            "🕳 Zwarte gaten",
-            "🛰 Gravitationele tijdvertraging",
+        ("🔬 Verdieping", [
+            ("🔄 Lorentz-transformaties", "Reken zelf coördinaten om tussen referentiekaders"),
+            ("💫 Relativistisch impuls", "Impuls en energie bij hoge snelheid, en fotonen zonder massa"),
         ]),
-        ("📖 Referentie", [
-            "📖 Formulekaart",
+        ("🕳 Richting Algemene Relativiteit", [
+            ("🕳 Zwarte gaten", "De grens waarachter zelfs licht niet meer kan ontsnappen"),
+            ("🛰 Gravitationele tijdvertraging", "Waarom GPS zonder Einstein 11 km per dag mis zou zitten"),
+        ]),
+        ("📖 Naslag", [
+            ("📖 Formulekaart", "Alle formules overzichtelijk op één pagina"),
         ]),
     ]
 
-    flat_modules = [m for _, mods in alle_modules for m in mods]
+    flat_modules = [mod for _, mods in alle_modules for mod, _tip in mods]
 
     with st.sidebar:
         st.markdown("### 🛸 Spacetime Forge")
@@ -756,15 +795,16 @@ def render_toolkit():
         if "active_module" not in st.session_state:
             st.session_state.active_module = flat_modules[0]
 
-        for fase_naam, mods in alle_modules:
-            st.markdown(f"**{fase_naam}**")
-            for mod in mods:
+        for groep_naam, mods in alle_modules:
+            st.markdown(f"**{groep_naam}**")
+            for mod, tooltip in mods:
                 is_active = (st.session_state.active_module == mod)
                 # Actieve knop krijgt een accent kleur
                 label = f"→ {mod}" if is_active else mod
                 if st.button(label, key=f"nav_{mod}",
                             width='stretch',
-                            type="primary" if is_active else "secondary"):
+                            type="primary" if is_active else "secondary",
+                            help=tooltip):
                     st.session_state.active_module = mod
                     st.rerun()
             st.markdown("")
