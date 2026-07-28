@@ -666,12 +666,12 @@ def render_home():
         st.markdown("""
         <div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:12px;padding:1.4rem;text-align:center;">
             <div style="font-size:2rem;margin-bottom:0.6rem;">🎓</div>
-            <div style="color:#60a5fa;font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Presentatie-modus</div>
-            <div style="color:#475569;font-size:0.82rem;line-height:1.5;">Leg relativiteit stap voor stap uit aan iemand anders. Grote visuals, geen formules.</div>
+            <div style="color:#60a5fa;font-size:1rem;font-weight:600;margin-bottom:0.4rem;">6 hoogtepunten</div>
+            <div style="color:#475569;font-size:0.82rem;line-height:1.5;">Snel iemand enthousiast maken? Deze 6 gaan het verst met grote, simpele visuals — geen formules, geen menu's.</div>
         </div>
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🎓  Start presentatie", key="start_presentatie", width='stretch'):
+        if st.button("🎓  Start hoogtepunten", key="start_presentatie", width='stretch'):
             st.session_state.page = "presentatie"
             st.session_state.slide = 0
             st.rerun()
@@ -680,8 +680,8 @@ def render_home():
         st.markdown("""
         <div style="background:#0f172a;border:1px solid #1e2a1e;border-radius:12px;padding:1.4rem;text-align:center;">
             <div style="font-size:2rem;margin-bottom:0.6rem;">🛸</div>
-            <div style="color:#34d399;font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Toolkit</div>
-            <div style="color:#475569;font-size:0.82rem;line-height:1.5;">Alle modules, berekeningen en visualisaties. Voor dieper onderzoek en studie.</div>
+            <div style="color:#34d399;font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Toolkit — alle 21 onderwerpen</div>
+            <div style="color:#475569;font-size:0.82rem;line-height:1.5;">Hier zit alles: eerst simpele uitleg, dan meteen de berekening of visualisatie erbij. Dit is de hoofdingang.</div>
         </div>
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -4825,118 +4825,6 @@ SLIDES = [
         "vraag": "Hoe kan dat kloppen?",
         "module_key": "➕ Snelheidsoptelling",
     },
-    {
-        "titel": "Beschrijf het gewoon in normale taal",
-        "ondertitel": "Geen formules nodig om te beginnen",
-        "intro": "Typ een zin als 'een raket met 0,8c die 10 jaar reist' en de tool herkent zelf de snelheid en de tijd — en rekent voor je uit hoeveel de reiziger veroudert.",
-        "type": "link_module",
-        "vraag": "Wat gebeurt er bij jouw eigen scenario?",
-        "module_key": "🚀 Scenario-simulator",
-    },
-    {
-        "titel": "Ruimte en tijd in één plaatje",
-        "ondertitel": "Het Minkowski-diagram",
-        "intro": "Elke lijn in dit diagram is de 'route' die iets aflegt door ruimte én tijd tegelijk. Zo zie je in één oogopslag wie sneller beweegt, en hoe klokken van elkaar verschillen.",
-        "type": "link_module",
-        "vraag": "Hoe verandert het plaatje als je van referentiekader wisselt?",
-        "module_key": "📐 Minkowski-diagram",
-    },
-    {
-        "titel": "Wat kan elkaar wel en niet beïnvloeden?",
-        "ondertitel": "Causaliteit in ruimtetijd",
-        "intro": "Niet elke gebeurtenis kan een andere beïnvloeden. De lichtkegel laat precies zien welke gebeurtenissen een oorzaak-gevolg-relatie kunnen hebben — en welke voor altijd van elkaar gescheiden blijven.",
-        "type": "link_module",
-        "vraag": "Ligt een gebeurtenis binnen of buiten jouw lichtkegel?",
-        "module_key": "💥 Lichtkegel",
-    },
-    {
-        "titel": "'Tegelijk' bestaat niet voor iedereen",
-        "ondertitel": "De relativiteit van gelijktijdigheid",
-        "intro": "Twee gebeurtenissen die voor jou op hetzelfde moment plaatsvinden, hoeven dat voor iemand die beweegt niet te zijn. Misschien wel het meest verrassende idee van Einstein.",
-        "type": "link_module",
-        "vraag": "Wie heeft er dan gelijk?",
-        "module_key": "🚂 Gelijktijdigheid",
-    },
-    {
-        "titel": "Hoe zet je twee verre klokken gelijk?",
-        "ondertitel": "Einstein's methode met lichtsignalen",
-        "intro": "Stuur een lichtsignaal heen en terug en stel de andere klok in op het gemiddelde — perfect, zolang jij stilstaat. Beweeg je, dan blijken de klokken toch niet synchroon te lopen.",
-        "type": "link_module",
-        "vraag": "Hoe groot is de fout als je zelf beweegt?",
-        "module_key": "🕐 Kloksynchronisatie",
-    },
-    {
-        "titel": "Het simpelste bewijs voor tijdsvertraging",
-        "ondertitel": "Een lichtstraaltje tussen twee spiegels",
-        "intro": "Stel je een klok voor die tikt doordat licht op en neer kaatst tussen twee spiegels. Beweegt die klok, dan legt het licht een langere, schuine weg af — en dus tikt de klok langzamer.",
-        "type": "link_module",
-        "vraag": "Hoe langzaam kan een bewegende klok tikken?",
-        "module_key": "💡 Lichtklok",
-    },
-    {
-        "titel": "Newton had het bijna goed",
-        "ondertitel": "Twee wereldbeelden naast elkaar",
-        "intro": "Newton dacht dat tijd voor iedereen hetzelfde verloopt. Dat klopt bijna — bij lage snelheden. Zie hier live hoe de twee theorieën uit elkaar gaan lopen naarmate je sneller beweegt.",
-        "type": "link_module",
-        "vraag": "Bij welke snelheid wordt het verschil zichtbaar?",
-        "module_key": "🏛 Galileï vs Einstein",
-    },
-    {
-        "titel": "Een verrassend behoud-principe",
-        "ondertitel": "Oppervlak dat nooit verandert",
-        "intro": "Hoe je een gebied in ruimtetijd ook vervormt door te versnellen — het oppervlak blijft altijd exact gelijk. Dit simpele feit verklaart in feite waaróm de Lorentz-transformatie precies zo werkt.",
-        "type": "link_module",
-        "vraag": "Waarom is dat zo belangrijk?",
-        "module_key": "🔷 Spacetime-volume",
-    },
-    {
-        "titel": "Waarom sterren van kleur veranderen",
-        "ondertitel": "Rood- en blauwverschuiving",
-        "intro": "Een lichtbron die naar je toe komt, lijkt blauwer. Eentje die wegbeweegt, lijkt roder — precies zoals de toon van een ambulancesirene verandert, maar dan met licht.",
-        "type": "link_module",
-        "vraag": "Hoe hard moet iets bewegen voordat je het écht ziet?",
-        "module_key": "🌈 Doppler-effect",
-    },
-    {
-        "titel": "Relativiteit als je hem écht zou merken",
-        "ondertitel": "Buitenspel, tunnels, races en supernova's",
-        "intro": "Vier alledaagse situaties, maar dan met relativistische snelheden: past een trein wel of niet in een tunnel? Is een speler buitenspel? Wie is er ouder — de haas of de schildpad?",
-        "type": "link_module",
-        "vraag": "Welk scenario verrast je het meest?",
-        "module_key": "⚽ Sport-scenarios",
-    },
-    {
-        "titel": "Reken zelf om tussen referentiekaders",
-        "ondertitel": "De wiskundige kern van alles",
-        "intro": "Elke tijdsvertraging, lengtecontractie en gelijktijdigheidsverschil die je hierboven zag, komt uit precies dezelfde twee formules. Hier reken je ze zelf uit.",
-        "type": "link_module",
-        "vraag": "Wat verandert er als je zelf een gebeurtenis invoert?",
-        "module_key": "🔄 Lorentz-transformaties",
-    },
-    {
-        "titel": "Zelfs licht heeft impuls",
-        "ondertitel": "Impuls en energie bij hoge snelheid",
-        "intro": "Bij hoge snelheid gedraagt impuls zich anders dan je op school leerde. En zelfs massaloze deeltjes zoals fotonen blijken impuls te hebben — genoeg om zonne-zeilen mee aan te drijven.",
-        "type": "link_module",
-        "vraag": "Hoeveel impuls heeft licht eigenlijk?",
-        "module_key": "💫 Relativistisch impuls",
-    },
-    {
-        "titel": "De grens waarachter niets ontsnapt",
-        "ondertitel": "Schwarzschild-straal",
-        "intro": "Een zwart gat is simpelweg zoveel massa in zo weinig ruimte gepropt, dat zelfs licht niet meer kan ontsnappen. Bereken zelf hoe groot die grens is — voor de zon, de aarde, of jezelf.",
-        "type": "link_module",
-        "vraag": "Hoe klein zou de aarde moeten worden om een zwart gat te worden?",
-        "module_key": "🕳 Zwarte gaten",
-    },
-    {
-        "titel": "Het heelal dijt uit",
-        "ondertitel": "Waarom alles van ons lijkt weg te bewegen",
-        "intro": "Hoe verder een sterrenstelsel weg staat, hoe sneller het van ons wegbeweegt. Dat is geen toeval en jij staat niet toevallig in het midden — het is het bewijs dat de ruimte zelf uitdijt.",
-        "type": "link_module",
-        "vraag": "Hoe snel dijt het heelal eigenlijk uit?",
-        "module_key": "🌌 Big Bang & kosmologie",
-    },
 ]
 
 
@@ -5028,8 +4916,6 @@ def render_slide(slide_idx):
         _pres_emc2()
     elif slide["type"] == "lichtsnelheid":
         _pres_lichtsnelheid()
-    elif slide["type"] == "link_module":
-        _pres_link_module(slide["module_key"])
 
     # Toolkit link onderaan — springt direct naar de bijbehorende module
     st.markdown("<br>", unsafe_allow_html=True)
@@ -5047,28 +4933,6 @@ def render_slide(slide_idx):
         </div>
         """, unsafe_allow_html=True)
 
-
-def _pres_link_module(module_key: str):
-    """
-    Generieke, lichtgewicht slide voor onderwerpen die nog geen eigen
-    op-maat-gemaakte animatie hebben. Toont een uitnodigende kaart die
-    duidelijk maakt dat de volledige, interactieve versie één tik verderop
-    in de Toolkit staat.
-    """
-    st.markdown(f"""
-    <div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:16px;
-                padding:2.2rem;text-align:center;margin:1rem 0 1.5rem 0;">
-        <div style="font-size:2.6rem;margin-bottom:0.6rem;">{module_key.split(' ')[0]}</div>
-        <div style="color:#60a5fa;font-size:1.05rem;font-weight:500;">
-            Deze module is volledig interactief
-        </div>
-        <div style="color:#64748b;font-size:0.88rem;margin-top:0.5rem;max-width:480px;
-                    margin-left:auto;margin-right:auto;line-height:1.6;">
-            Sliders, invoervelden en live grafieken vind je in de Toolkit —
-            open 'm hieronder om zelf te experimenteren met deze module.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 def _pres_epstein():
