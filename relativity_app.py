@@ -863,14 +863,18 @@ def navigeer_naar_module(module_key: str):
     """
     Centrale, enige manier om programmatisch naar een module te springen
     (vanuit Vorige/Volgende-knoppen, de presentatiemodus, of sneltoetsen
-    op de homepage). Zet zowel de 'echte' state (active_module) als de
-    widget-keys van het categorie/module-menu, zodat die twee nooit uit
-    sync raken — dat was precies de oorzaak van de eerdere navigatiebug.
+    op de homepage).
+
+    Belangrijk: dit schrijft NIET rechtstreeks naar de widget-keys van het
+    categorie/module-menu (nav_groep_select / nav_module_select), omdat
+    Streamlit dat niet toestaat zodra die widgets al zijn aangemaakt in
+    dezelfde run — en render_leerpad_navigatie() draait pas ná die widgets.
+    In plaats daarvan zet dit een 'pending'-vlag die render_toolkit() bij
+    de volgende pagina-laadbeurt verwerkt, vóórdat de widgets zelf worden
+    aangemaakt.
     """
     st.session_state.page = "toolkit"
-    st.session_state.active_module = module_key
-    st.session_state.nav_groep_select = GROEP_VAN_MODULE.get(module_key, ALLE_MODULES[0][0])
-    st.session_state.nav_module_select = module_key
+    st.session_state["_pending_module"] = module_key
     st.rerun()
 
 
@@ -882,6 +886,17 @@ def render_toolkit():
 
     if "active_module" not in st.session_state:
         st.session_state.active_module = flat_modules[0]
+
+    # Een eventuele geplande navigatie (vanuit Vorige/Volgende, presentatiemodus,
+    # of de homepage) eerst verwerken — dit MOET vóór de widgets hieronder worden
+    # aangemaakt, want Streamlit staat geen wijziging van een widget-key toe nadat
+    # die widget al is aangemaakt in dezelfde run.
+    if "_pending_module" in st.session_state:
+        doel_module = st.session_state.pop("_pending_module")
+        st.session_state.active_module = doel_module
+        st.session_state.nav_groep_select = groep_van_module.get(doel_module, alle_modules[0][0])
+        st.session_state.nav_module_select = doel_module
+
     # Widget-keys initialiseren op de eerste render, zodat ze vanaf dat
     # moment de enige bron van waarheid zijn (Streamlit negeert 'index'
     # op een widget zodra de bijbehorende key al bestaat in session_state).
