@@ -1109,6 +1109,22 @@ of "de klok gaat langzamer" zonder erbij te zeggen *voor wie*, is de uitleg
 onvolledig.
                 """)
 
+            with st.expander("💡 Weetje: waar komt het symbool 'c' eigenlijk vandaan?"):
+                st.markdown("""
+Uit Takeuchi's *An Illustrated Guide to Relativity*, hoofdstuk 1 (met dank aan zijn
+voetnoten):
+
+Einsteins beroemde artikel uit 1905 heette in het Duits **"Zur Elektrodynamik bewegter
+Körper"** ("Over de elektrodynamica van bewegende lichamen"). Het Duitse woord *Körper*
+deelt zijn oorsprong met het Engelse woord *corpse* — allebei komen ze van het Latijnse
+*corpus*, dat gewoon "lichaam" betekent (in de zin van "object", niet "menselijk lichaam").
+
+En de letter **c** voor de lichtsnelheid? Die komt van het Latijnse woord *celeritas*,
+wat simpelweg "snelheid" betekent. Zelfs Newtons beroemde *Principia* (1687) was
+volledig in het Latijn geschreven — inclusief de titel, *Philosophiae Naturalis
+Principia Mathematica*.
+                """)
+
     # ==============================
     # TAB 2 – Snelheidsoptelling
     # ==============================
@@ -1203,6 +1219,22 @@ De uitkomst blijft altijd $|u| < c$.
             else:
                 st.info("Vul de waarden in en klik op **Bereken**.")
 
+        with st.expander("💡 Weetjes over de lichtsnelheid"):
+            st.markdown("""
+Uit Takeuchi's *An Illustrated Guide to Relativity*, §4.1:
+
+- Licht is snel genoeg om **7,5 keer per seconde** rond de aarde te vliegen.
+- Voor 30 centimeter (ongeveer een voet) heeft licht maar **1 nanoseconde** nodig
+  (0,000000001 seconde).
+- **Galileo Galilei probeerde zelf al de lichtsnelheid te meten** — met twee mensen
+  op verre heuveltoppen die lantaarns voor elkaar afdekten en weer onthulden. Het
+  lukte hem niet: licht is simpelweg te snel voor die methode. Pas eind negentiende
+  eeuw werd de techniek nauwkeurig genoeg om c echt te kunnen meten.
+- Het opmerkelijke resultaat van die metingen — dat c voor **elke** waarnemer
+  hetzelfde is, ongeacht hoe hard die waarnemer zelf beweegt — is precies het
+  probleem waar deze hele module om draait.
+            """)
+
     # ==============================
     # TAB 3 – Scenario-simulator
     # ==============================
@@ -1227,35 +1259,86 @@ De tool herkent automatisch de snelheid (in **c**) en tijd (in **jaar**).
                 "Een deeltje beweegt met 3/4 lichtsnelheid en reist 8 jaar.",
                 "Een raket gaat met 60 procent van de lichtsnelheid en reist 15 jaar.",
             ]
+
+            if "t3_scenario" not in st.session_state:
+                st.session_state["t3_scenario"] = (
+                    "Een raket beweegt met 0,8c ten opzichte van de aarde en "
+                    "reist 10 jaar volgens de klok op aarde."
+                )
+
+            voorbeeld_geklikt = False
             for ex in examples:
                 if st.button(f"↗ {ex[:55]}…", key=f"ex_{ex[:20]}"):
-                    st.session_state["scenario_text"] = ex
+                    # Direct de widget-state zetten (dit mag: de tekstvak-widget
+                    # hieronder is in déze run nog niet aangemaakt) en meteen
+                    # ook laten berekenen, zonder dat er apart op "Analyseer &
+                    # bereken" geklikt hoeft te worden.
+                    st.session_state["t3_scenario"] = ex
+                    voorbeeld_geklikt = True
 
             st.markdown("---")
-            default = st.session_state.get("scenario_text",
-                "Een raket beweegt met 0,8c ten opzichte van de aarde en reist 10 jaar volgens de klok op aarde.")
-            scenario = st.text_area("Scenario", value=default, height=120, key="t3_scenario")
-            go3 = st.button("Analyseer & bereken", key="t3_go")
+            scenario = st.text_area("Scenario", height=120, key="t3_scenario")
+            go3 = st.button("Analyseer & bereken", key="t3_go") or voorbeeld_geklikt
 
         with col_right:
             def parse_scenario(text):
                 tl = text.lower()
-                bm = re.search(r"(\d+[.,]?\d*)\s*c", tl)
+
+                bv = None
+                # Vorm 1: "0,8c" / "0.99 c"
+                bm = re.search(r"(\d+[.,]?\d*)\s*c\b", tl)
+                if bm:
+                    try:
+                        bv = float(bm.group(1).replace(",", "."))
+                    except ValueError:
+                        bv = None
+                # Vorm 2: "90% van de lichtsnelheid" / "60 procent van de lichtsnelheid"
+                if bv is None:
+                    pm = re.search(r"(\d+[.,]?\d*)\s*(%|procent)", tl)
+                    if pm:
+                        try:
+                            bv = float(pm.group(1).replace(",", ".")) / 100.0
+                        except ValueError:
+                            bv = None
+                # Vorm 3: "3/4 lichtsnelheid"
+                if bv is None:
+                    fm = re.search(r"(\d+)\s*/\s*(\d+)\s*(?:van de\s*)?(?:lichtsnelheid|c\b)", tl)
+                    if fm:
+                        try:
+                            bv = float(fm.group(1)) / float(fm.group(2))
+                        except (ValueError, ZeroDivisionError):
+                            bv = None
+
                 tm = re.search(r"(\d+[.,]?\d*)\s*(jaar|jaren)", tl)
-                if not bm or not tm:
+                if bv is None or not tm:
                     return None
                 try:
-                    bv = float(bm.group(1).replace(",", "."))
                     tv = float(tm.group(1).replace(",", "."))
                 except ValueError:
                     return None
                 if not (0 < bv < 1):
                     return None
+
+                if "raket" in tl:
+                    subject = "raket"
+                elif "ruimteschip" in tl:
+                    subject = "ruimteschip"
+                elif "muon" in tl:
+                    subject = "muon"
+                elif "sonde" in tl:
+                    subject = "sonde"
+                elif "astronaut" in tl:
+                    subject = "astronaut"
+                elif "deeltje" in tl:
+                    subject = "deeltje"
+                else:
+                    subject = "object"
+
                 return {
                     "beta": bv,
                     "t_earth": tv,
                     "rest": "aarde" if "aarde" in tl else "rustframe",
-                    "moving": "raket" if "raket" in tl else ("ruimteschip" if "ruimteschip" in tl else "object"),
+                    "moving": subject,
                 }
 
             if not go3:
@@ -2088,6 +2171,32 @@ een doos vol fotonen weegt — heel misschien onmeetbaar weinig, maar echt — m
 diezelfde dingen in koude, ontspannen toestand.
                     """)
 
+                with st.expander("💡 Weetje: het opwindspeelgoed-voorbeeld"):
+                    st.markdown("""
+Ook uit Epstein's *Relativity Visualized*, in hetzelfde hoofdstuk (let op: Epstein
+schrijft dit met het oudere "relativistische massa"-taalgebruik; hieronder vertaald
+naar de conventie die deze toolkit gebruikt — zie de denkfout-box hierboven):
+
+Vergelijk twee versnellende voertuigen: een **tram** die stroom krijgt via een
+bovenleiding, en een **opwindspeelgoedauto** die alle energie al bij zich draagt
+in zijn opgewonden veer.
+
+Bij de tram komt de energie van **buitenaf** (de energiecentrale, via de
+bovenleiding) — dat is waarom zijn totale energie toeneemt terwijl hij versnelt.
+
+Maar het opwindspeelgoed krijgt **geen enkele energie van buitenaf**. Het zet simpelweg
+de energie die al in de veer zat om in bewegingsenergie. Er moet dus iets in het
+speelgoed zelf afnemen om de rest toe te laten nemen: de **rustenergie die in de veer
+was opgeslagen** neemt af, precies zoveel als de bewegingsenergie toeneemt. Zolang de
+veer afwikkelt, verliest het speelgoedje dus letterlijk een klein beetje van zijn eigen
+rustenergie (en daarmee, via E=mc², een onmeetbaar klein beetje massa) om zichzelf
+voort te bewegen.
+
+Een mooie illustratie van hoe letterlijk E = mc² is: energie die "verdwijnt" uit de
+veer, duikt weer op als bewegingsenergie van de auto — er gaat niets verloren, het
+verandert alleen van vorm.
+                    """)
+
             except Exception as e:
                 st.error(f"Fout: {e}")
 
@@ -2786,6 +2895,29 @@ Einstein, geen voorspelling die (nog) experimenteel is bevestigd.
                 plt.close(fig_wg)
 
                 st.caption("Dit is een schematisch 'inbeddingsdiagram' — een gangbare manier om gekromde ruimtetijd voorstelbaar te maken, geen letterlijke ruimtelijke vorm.")
+
+            st.markdown("---")
+            with st.expander("💡 Weetje: je zou nooit zien dat iemand in een zwart gat valt"):
+                st.markdown("""
+Een van de meest verbluffende gevolgen uit Epstein's *Relativity Visualized*
+(hoofdstuk 12):
+
+Stel dat een vriend van je in een zwart gat valt, terwijl jij op veilige afstand
+toekijkt. Wat je zou zien is **niet** dat je vriend door de waarnemingshorizon
+verdwijnt. In plaats daarvan zou je zien hoe die steeds **langzamer** valt, en
+uiteindelijk lijkt te bevriezen — voor altijd vastgezet vlak bóven de horizon,
+langzaam roder en zwakker wordend, maar nooit echt verdwijnend.
+
+**Maar vanuit het perspectief van je vriend zelf** gebeurt er iets heel anders:
+die passeert de horizon gewoon, in een heel gewone, eindige hoeveelheid eigen tijd
+— zonder daar op dat moment iets bijzonders van te merken.
+
+Dit is geen tegenstrijdigheid — het is precies hetzelfde onderscheid tussen
+**coördinaattijd** (jouw waarneming van buitenaf, die tergend langzaam blijft
+lopen naarmate je vriend de horizon nadert) en **eigen tijd** (wat je vriend zelf
+op zijn eigen horloge afleest) dat overal in deze toolkit terugkomt bij
+tijdsdilatatie — hier alleen in zijn meest extreme vorm.
+                """)
 
     # ==============================
     # TAB 13 – Gravitationele tijdsvertraging
@@ -4837,24 +4969,26 @@ def render_slide(slide_idx):
             st.rerun()
     with col_jump:
         slide_opties = [f"{i+1}. {SLIDES[i]['titel'][:30]}" for i in range(n)]
-        gekozen = st.selectbox("Ga naar hoofdstuk", slide_opties, index=slide_idx,
+        if "pres_jump" not in st.session_state:
+            st.session_state.pres_jump = slide_opties[slide_idx]
+        gekozen = st.selectbox("Ga naar hoofdstuk", slide_opties,
                               key="pres_jump", label_visibility="collapsed")
         nieuw_idx = slide_opties.index(gekozen)
         if nieuw_idx != slide_idx:
-            st.session_state.slide = nieuw_idx
+            st.session_state["_pending_slide"] = nieuw_idx
             st.rerun()
     with col_prev:
         prev_disabled = (slide_idx == 0)
         if st.button("◀ Vorige", key="pres_prev",
                     width='stretch',
                     disabled=prev_disabled):
-            st.session_state.slide = slide_idx - 1
+            st.session_state["_pending_slide"] = slide_idx - 1
             st.rerun()
     with col_next:
         if slide_idx < n - 1:
             if st.button("Volgende ▶", key="pres_next",
                         width='stretch', type="primary"):
-                st.session_state.slide = slide_idx + 1
+                st.session_state["_pending_slide"] = slide_idx + 1
                 st.rerun()
         else:
             if st.button("🛸 Toolkit", key="pres_toolkit",
@@ -5511,6 +5645,17 @@ def _pres_lichtsnelheid():
 def render_presentatie():
     if "slide" not in st.session_state:
         st.session_state.slide = 0
+
+    # Geplande navigatie (Vorige/Volgende/keuzemenu) verwerken vóórdat
+    # render_slide() de widgets aanmaakt — zelfde reden als bij de Toolkit:
+    # Streamlit staat geen wijziging van een widget-key toe ná aanmaak
+    # binnen dezelfde run.
+    if "_pending_slide" in st.session_state:
+        doel_slide = st.session_state.pop("_pending_slide")
+        st.session_state.slide = doel_slide
+        slide_opties_all = [f"{i+1}. {SLIDES[i]['titel'][:30]}" for i in range(len(SLIDES))]
+        st.session_state.pres_jump = slide_opties_all[doel_slide]
+
     render_slide(st.session_state.slide)
 
 
