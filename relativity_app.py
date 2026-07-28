@@ -699,9 +699,7 @@ def render_home():
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("📖  Open formules", key="start_formules", width='stretch'):
-            st.session_state.page = "toolkit"
-            st.session_state.active_module = "📖 Formulekaart"
-            st.rerun()
+            navigeer_naar_module("📖 Formulekaart")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<hr>", unsafe_allow_html=True)
@@ -789,8 +787,7 @@ def render_leerpad_navigatie(actieve_module: str):
         if idx > 0:
             vorige = LEERPAD[idx - 1]
             if st.button(f"◀ {vorige}", key="leerpad_vorige", width='stretch'):
-                st.session_state.active_module = vorige
-                st.rerun()
+                navigeer_naar_module(vorige)
     with col_mid:
         st.markdown(f"""
         <div style="text-align:center;padding-top:0.5rem;">
@@ -805,8 +802,7 @@ def render_leerpad_navigatie(actieve_module: str):
             volgende = LEERPAD[idx + 1]
             if st.button(f"{volgende} ▶", key="leerpad_volgende",
                         width='stretch', type="primary"):
-                st.session_state.active_module = volgende
-                st.rerun()
+                navigeer_naar_module(volgende)
         else:
             st.markdown("""
             <div style="text-align:center;color:#34d399;font-size:0.85rem;padding-top:0.6rem;">
@@ -816,54 +812,83 @@ def render_leerpad_navigatie(actieve_module: str):
 
 
 # ==========================
-# TOOLKIT PAGINA
+# Module-indeling — thematisch gegroepeerd (i.p.v. ontwikkelfases),
+# met per module een korte tooltip die uitlegt waarom het interessant is.
+# Op moduleniveau gedefinieerd (niet binnen render_toolkit) zodat elke
+# functie in de app op dezelfde, consistente manier kan navigeren.
 # ==========================
 
-def render_toolkit():
-    # Sidebar navigatie — thematisch gegroepeerd (i.p.v. ontwikkelfases),
-    # met per module een korte tooltip die uitlegt waarom het interessant is.
-    alle_modules = [
-        ("🎯 Begin hier", [
-            ("⏱ Lorentz & tijdsvertraging", "De basisformule: hoe tijd en lengte veranderen bij hoge snelheid"),
-            ("➕ Snelheidsoptelling", "Waarom 0,9c + 0,9c nooit sneller dan c wordt"),
-            ("🚀 Scenario-simulator", "Beschrijf een situatie in gewone taal, krijg direct de berekening"),
-            ("👯 Tweelingparadox", "De klassieker: waarom de reizende tweeling jonger terugkomt"),
-        ]),
-        ("🌌 Ruimtetijd doorgronden", [
-            ("📐 Minkowski-diagram", "Worldlines, referentiekaders en lichtkegels in één grafiek"),
-            ("💥 Lichtkegel", "Wat kan elkaar beïnvloeden, en wat niet? Causaliteit visueel"),
-            ("🚂 Gelijktijdigheid", "Waarom 'tegelijkertijd' niet voor iedereen hetzelfde betekent"),
-            ("🕐 Kloksynchronisatie", "Hoe synchroniseer je klokken die ver uit elkaar staan?"),
-            ("💡 Lichtklok", "Het simpelste gedachte-experiment achter tijdsvertraging"),
-            ("🔵 Epstein-cirkel", "Iedereen beweegt met snelheid c — door de ruimte óf door de tijd"),
-            ("🏛 Galileï vs Einstein", "Het verschil tussen klassieke en relativistische ruimtetijd"),
-            ("🔷 Spacetime-volume", "Waarom de Lorentz-transformatie precies zo werkt als hij werkt"),
-        ]),
-        ("🎨 Effecten & toepassingen", [
-            ("🌈 Doppler-effect", "Rood- en blauwverschuiving van bewegende lichtbronnen"),
-            ("⚡ E=mc²", "Hoeveel energie zit er eigenlijk verborgen in massa?"),
-            ("⚽ Sport-scenarios", "Buitenspel, tunnels en rennende dieren als relativiteit-puzzels"),
-        ]),
-        ("🔬 Verdieping", [
-            ("🔄 Lorentz-transformaties", "Reken zelf coördinaten om tussen referentiekaders"),
-            ("💫 Relativistisch impuls", "Impuls en energie bij hoge snelheid, en fotonen zonder massa"),
-        ]),
-        ("🕳 Richting Algemene Relativiteit", [
-            ("🕳 Zwarte gaten", "De grens waarachter zelfs licht niet meer kan ontsnappen — nu ook met wormgaten"),
-            ("🛰 Gravitationele tijdvertraging", "Waarom GPS zonder Einstein 11 km per dag mis zou zitten"),
-            ("🌌 Big Bang & kosmologie", "Waarom alle sterrenstelsels van ons lijken weg te bewegen"),
-        ]),
-        ("📖 Naslag", [
-            ("📖 Formulekaart", "Alle formules overzichtelijk op één pagina"),
-        ]),
-    ]
+ALLE_MODULES = [
+    ("🎯 Begin hier", [
+        ("⏱ Lorentz & tijdsvertraging", "De basisformule: hoe tijd en lengte veranderen bij hoge snelheid"),
+        ("➕ Snelheidsoptelling", "Waarom 0,9c + 0,9c nooit sneller dan c wordt"),
+        ("🚀 Scenario-simulator", "Beschrijf een situatie in gewone taal, krijg direct de berekening"),
+        ("👯 Tweelingparadox", "De klassieker: waarom de reizende tweeling jonger terugkomt"),
+    ]),
+    ("🌌 Ruimtetijd doorgronden", [
+        ("📐 Minkowski-diagram", "Worldlines, referentiekaders en lichtkegels in één grafiek"),
+        ("💥 Lichtkegel", "Wat kan elkaar beïnvloeden, en wat niet? Causaliteit visueel"),
+        ("🚂 Gelijktijdigheid", "Waarom 'tegelijkertijd' niet voor iedereen hetzelfde betekent"),
+        ("🕐 Kloksynchronisatie", "Hoe synchroniseer je klokken die ver uit elkaar staan?"),
+        ("💡 Lichtklok", "Het simpelste gedachte-experiment achter tijdsvertraging"),
+        ("🔵 Epstein-cirkel", "Iedereen beweegt met snelheid c — door de ruimte óf door de tijd"),
+        ("🏛 Galileï vs Einstein", "Het verschil tussen klassieke en relativistische ruimtetijd"),
+        ("🔷 Spacetime-volume", "Waarom de Lorentz-transformatie precies zo werkt als hij werkt"),
+    ]),
+    ("🎨 Effecten & toepassingen", [
+        ("🌈 Doppler-effect", "Rood- en blauwverschuiving van bewegende lichtbronnen"),
+        ("⚡ E=mc²", "Hoeveel energie zit er eigenlijk verborgen in massa?"),
+        ("⚽ Sport-scenarios", "Buitenspel, tunnels en rennende dieren als relativiteit-puzzels"),
+    ]),
+    ("🔬 Verdieping", [
+        ("🔄 Lorentz-transformaties", "Reken zelf coördinaten om tussen referentiekaders"),
+        ("💫 Relativistisch impuls", "Impuls en energie bij hoge snelheid, en fotonen zonder massa"),
+    ]),
+    ("🕳 Richting Algemene Relativiteit", [
+        ("🕳 Zwarte gaten", "De grens waarachter zelfs licht niet meer kan ontsnappen — nu ook met wormgaten"),
+        ("🛰 Gravitationele tijdvertraging", "Waarom GPS zonder Einstein 11 km per dag mis zou zitten"),
+        ("🌌 Big Bang & kosmologie", "Waarom alle sterrenstelsels van ons lijken weg te bewegen"),
+    ]),
+    ("📖 Naslag", [
+        ("📖 Formulekaart", "Alle formules overzichtelijk op één pagina"),
+    ]),
+]
 
-    flat_modules = [mod for _, mods in alle_modules for mod, _tip in mods]
-    groep_van_module = {mod: groep for groep, mods in alle_modules for mod, _tip in mods}
-    tooltip_van_module = {mod: tip for _, mods in alle_modules for mod, tip in mods}
+FLAT_MODULES = [mod for _, mods in ALLE_MODULES for mod, _tip in mods]
+GROEP_VAN_MODULE = {mod: groep for groep, mods in ALLE_MODULES for mod, _tip in mods}
+TOOLTIP_VAN_MODULE = {mod: tip for _, mods in ALLE_MODULES for mod, tip in mods}
+
+
+def navigeer_naar_module(module_key: str):
+    """
+    Centrale, enige manier om programmatisch naar een module te springen
+    (vanuit Vorige/Volgende-knoppen, de presentatiemodus, of sneltoetsen
+    op de homepage). Zet zowel de 'echte' state (active_module) als de
+    widget-keys van het categorie/module-menu, zodat die twee nooit uit
+    sync raken — dat was precies de oorzaak van de eerdere navigatiebug.
+    """
+    st.session_state.page = "toolkit"
+    st.session_state.active_module = module_key
+    st.session_state.nav_groep_select = GROEP_VAN_MODULE.get(module_key, ALLE_MODULES[0][0])
+    st.session_state.nav_module_select = module_key
+    st.rerun()
+
+
+def render_toolkit():
+    alle_modules = ALLE_MODULES
+    flat_modules = FLAT_MODULES
+    groep_van_module = GROEP_VAN_MODULE
+    tooltip_van_module = TOOLTIP_VAN_MODULE
 
     if "active_module" not in st.session_state:
         st.session_state.active_module = flat_modules[0]
+    # Widget-keys initialiseren op de eerste render, zodat ze vanaf dat
+    # moment de enige bron van waarheid zijn (Streamlit negeert 'index'
+    # op een widget zodra de bijbehorende key al bestaat in session_state).
+    if "nav_groep_select" not in st.session_state:
+        st.session_state.nav_groep_select = groep_van_module[st.session_state.active_module]
+    if "nav_module_select" not in st.session_state:
+        st.session_state.nav_module_select = st.session_state.active_module
 
     # Navigatie bovenaan i.p.v. uitklapbare sidebar — op mobiel werkt dit
     # vloeiender: alles staat meteen in beeld, er is geen hamburger-menu
@@ -876,25 +901,22 @@ def render_toolkit():
             st.session_state.page = "home"
             st.rerun()
 
-    huidige_groep = groep_van_module[st.session_state.active_module]
     groep_namen = [g for g, _ in alle_modules]
 
     with col_groep:
         gekozen_groep = st.selectbox(
             "Categorie", groep_namen,
-            index=groep_namen.index(huidige_groep),
             key="nav_groep_select",
             label_visibility="collapsed",
         )
 
     modules_in_groep = [mod for g, mods in alle_modules if g == gekozen_groep for mod, _tip in mods]
-    if st.session_state.active_module not in modules_in_groep:
-        st.session_state.active_module = modules_in_groep[0]
+    if st.session_state.nav_module_select not in modules_in_groep:
+        st.session_state.nav_module_select = modules_in_groep[0]
 
     with col_module:
         gekozen_module = st.selectbox(
             "Module", modules_in_groep,
-            index=modules_in_groep.index(st.session_state.active_module),
             key="nav_module_select",
             label_visibility="collapsed",
         )
@@ -4868,9 +4890,7 @@ def render_slide(slide_idx):
         with col_link_m:
             if st.button(f"🛸 Open '{module_key}' in de Toolkit", key=f"pres_link_{slide_idx}",
                         width='stretch'):
-                st.session_state.page = "toolkit"
-                st.session_state.active_module = module_key
-                st.rerun()
+                navigeer_naar_module(module_key)
     else:
         st.markdown("""
         <div style="text-align:center;color:#334155;font-size:0.8rem;">
