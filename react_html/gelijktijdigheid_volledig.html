@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { width: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useRef, useEffect } = React;
+
+// Alle drie de relativistische effecten samen, consistent via de Lorentz-
+// transformatie:
+//  - Lengtecontractie:     Lc = L / gamma   (L = eigen lengte, gemeten in trein-kader)
+//  - Tijdsdilatatie:       tau = t / gamma  (voor een klok die op x'=0 stilstaat)
+//  - Relativiteit van gelijktijdigheid: klokken op verschillende plekken in de
+//    trein lopen, gezien vanaf het perron, niet synchroon: de achterklok staat
+//    al v*L/c^2 voor op de voorklok, op ELK moment.
+//
+// Formules (c = 1, L = eigen lengte van de trein):
+//   gamma        = 1 / sqrt(1 - v^2)
+//   Lc           = L / gamma
+//   t_achter     = Lc / (2*(1+v))     [platform-tijd waarop licht achterkant raakt]
+//   t_voor       = Lc / (2*(1-v))     [platform-tijd waarop licht voorkant raakt]
+//   dt_platform  = t_voor - t_achter  =  gamma * v * L     (relativiteit v. gelijktijdigheid)
+//   tau_achter(t)= t/gamma + v*L/2    [kloktand achterklok, afgelezen vanaf perron]
+//   tau_voor(t)  = t/gamma - v*L/2    [kloktand voorklok, afgelezen vanaf perron]
+//   In trein-kader: licht raakt beide kanten op t' = L/2, gelijktijdig.
+
+function GelijktijdigheidVolledig() {
+  const [vFrac, setVFrac] = useState(0.6);
+  const [L, setL] = useState(1.0);
+  const C = 1.0;
+  const gamma = 1 / Math.sqrt(1 - vFrac * vFrac);
+  const Lc = L / gamma; // gecontraheerde lengte, platform-kader
+
+  // Eén gedeelde tijdswaarde "t" wordt RECHTSTREEKS gebruikt in beide
+  // panelen -- geen herschaling naar een eigen 0-100%-bereik per paneel.
+  // Dat is precies wat zorgt dat de lichtpuntjes (die in elk kader met
+  // exact dezelfde snelheid c bewegen) ook visueel even snel bewegen: bij
+  // elke stap van de slider verstrijkt in beide panelen evenveel "eigen
+  // tijd", dus x = ±c·t geeft in beide panelen identieke verplaatsing.
+  //
+  // Belangrijke kanttekening: dit betekent NIET dat "t seconden op het
+  // perron" hetzelfde moment is als "t seconden in de trein" -- dat zijn
+  // twee aparte, niet-simultane afspeelassen die toevallig dezelfde
+  // teller gebruiken. Zie de toelichting onder de grafieken.
+  const tVoorEind = Lc / (2 * (C - vFrac));
+  const tHitTrein = L / (2 * C);
+  // t_inhaal: moment waarop de perronklok de (berekende) achterklok-stand
+  // inhaalt -- t/gamma + vL/2 = t opgelost naar t. Meegenomen in tMax zodat
+  // het bijbehorende punt in het Minkowski-diagram altijd zichtbaar is.
+  const tInhaalRuw = (vFrac * L / 2) / (1 - 1 / gamma);
+  const tMax = Math.max(tVoorEind, tHitTrein, tInhaalRuw) * 1.15;
+  const [t, setT] = useState(0);
+  const tTrein = t; // zelfde teller, andere betekenis per paneel (zie boven)
+
+  const platform = useMemo(() => {
+    const v = vFrac * C;
+    const middenT = v * t;
+    const voorT = middenT + Lc / 2;
+    const achterT = middenT - Lc / 2;
+    const straal = C * t;
+    const tAchter = Lc / (2 * (C + v));
+    const tVoor = Lc / (2 * (C - v));
+    const tauAchter = t / gamma + (v * L) / 2;
+    const tauVoor = t / gamma - (v * L) / 2;
+    return {
+      middenT, voorT, achterT, straal, tAchter, tVoor,
+      tauAchter, tauVoor,
+      achterGeraakt: t >= tAchter,
+      voorGeraakt: t >= tVoor,
+    };
+  }, [vFrac, L, Lc, gamma, t]);
+
+  // Trein-eigen kader: dit is de ECHTE rustkader-beschrijving (geen hypothese)
+  // -- gesynchroniseerd op t'=0 met het perron-kader op het moment van de flits.
+  const train = useMemo(() => {
+    const straal = C * tTrein;
+    return {
+      straal,
+      achterGeraakt: tTrein >= tHitTrein,
+      voorGeraakt: tTrein >= tHitTrein,
+    };
+  }, [tTrein, tHitTrein]);
+
+  const svgW = 760;
+  const svgH = 200;
+
+  // EEN gedeelde pixel-schaal voor BEIDE panelen, gebaseerd op het bereik
+  // dat het breedste paneel over de hele slider nodig heeft. Zo is 1
+  // ruimte-eenheid in beide panelen exact evenveel pixels.
+  const middenMax = vFrac * C * tMax;
+  const platformReikwijdte = Math.max(C * tMax, middenMax + Lc / 2);
+  const treinReikwijdte = Math.max(C * tMax, L / 2);
+  const gedeeldeReikwijdte = Math.max(platformReikwijdte, treinReikwijdte);
+  const xMin = -gedeeldeReikwijdte * 1.1 - 0.5;
+  const xMax = gedeeldeReikwijdte * 1.1 + 0.5;
+  const toX = (x) => ((x - xMin) / (xMax - xMin)) * svgW;
+  const toPX = toX;
+  const toTX = toX;
+
+  const dtPlatform = platform.tVoor - platform.tAchter;
+  const desyncOffset = vFrac * L; // v*L, verschil in klokstand op elk platform-moment
+
+  // Omrekening naar echte seconden: de gebruiker geeft aan hoeveel meter
+  // 1 ruimte-eenheid voorstelt. Omdat we c=1 gebruiken (1 tijdseenheid =
+  // tijd die licht nodig heeft voor 1 ruimte-eenheid), is de omrekenfactor
+  // simpelweg (meter per eenheid) / (lichtsnelheid in m/s).
+  const [eenheidMeter, setEenheidMeter] = useState(299792458); // default: 1 lichtseconde
+  const [treinPerspectief, setTreinPerspectief] = useState(false);
+  const [toonHyperbolen, setToonHyperbolen] = useState(false);
+  const C_ECHT = 299792458; // m/s
+  const secondenPerEenheid = eenheidMeter / C_ECHT;
+  const echteSeconden = eenheidMeter > 0 ? t * secondenPerEenheid : null;
+
+  // Schaal voor het Minkowski-diagram: ct verticaal (omhoog), x horizontaal.
+  const mkW = 760;
+  const mkH = 420;
+  const [mkZoom, setMkZoom] = useState(1);
+  const [mkPanX, setMkPanX] = useState(0);
+  const [mkPanY, setMkPanY] = useState(0);
+  const mkSvgRef = useRef(null);
+  const mkDrag = useRef({ dragging: false, lastX: 0, lastY: 0, pinchDist: null });
+
+  const mkSchaalfactor = () => {
+    if (!mkSvgRef.current) return 1;
+    const rect = mkSvgRef.current.getBoundingClientRect();
+    return mkW / rect.width; // omrekening van CSS-pixels naar viewBox-eenheden
+  };
+
+  const mkTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      mkDrag.current.pinchDist = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
+      mkDrag.current.dragging = true;
+      mkDrag.current.lastX = e.touches[0].clientX;
+      mkDrag.current.lastY = e.touches[0].clientY;
+    }
+  };
+  const mkTouchMove = (e) => {
+    if (e.touches.length === 2 && mkDrag.current.pinchDist) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const nieuweAfstand = Math.sqrt(dx * dx + dy * dy);
+      const factor = nieuweAfstand / mkDrag.current.pinchDist;
+      setMkZoom((z) => Math.min(6, Math.max(0.25, z * factor)));
+      mkDrag.current.pinchDist = nieuweAfstand;
+    } else if (e.touches.length === 1 && mkDrag.current.dragging) {
+      e.preventDefault();
+      const s = mkSchaalfactor();
+      const dx = (e.touches[0].clientX - mkDrag.current.lastX) * s;
+      const dy = (e.touches[0].clientY - mkDrag.current.lastY) * s;
+      setMkPanX((p) => p + dx);
+      setMkPanY((p) => p + dy);
+      mkDrag.current.lastX = e.touches[0].clientX;
+      mkDrag.current.lastY = e.touches[0].clientY;
+    }
+  };
+  const mkTouchEnd = (e) => {
+    if (e.touches.length < 2) mkDrag.current.pinchDist = null;
+    if (e.touches.length === 0) mkDrag.current.dragging = false;
+  };
+  // ook slepen met de muis (desktop)
+  const mkMouseDown = (e) => {
+    mkDrag.current.dragging = true;
+    mkDrag.current.lastX = e.clientX;
+    mkDrag.current.lastY = e.clientY;
+  };
+  const mkMouseMove = (e) => {
+    if (!mkDrag.current.dragging) return;
+    const s = mkSchaalfactor();
+    const dx = (e.clientX - mkDrag.current.lastX) * s;
+    const dy = (e.clientY - mkDrag.current.lastY) * s;
+    setMkPanX((p) => p + dx);
+    setMkPanY((p) => p + dy);
+    mkDrag.current.lastX = e.clientX;
+    mkDrag.current.lastY = e.clientY;
+  };
+  const mkMouseUp = () => { mkDrag.current.dragging = false; };
+
+  // Native koppelen i.p.v. via JSX-props: React's synthetic touch-events
+  // zijn soms 'passive', waardoor preventDefault() de verticale paginascroll
+  // niet blokkeert. Met een handmatige addEventListener({passive:false})
+  // werkt de scroll-blokkering wel betrouwbaar, ook verticaal.
+  React.useEffect(() => {
+    const el = mkSvgRef.current;
+    if (!el) return;
+    el.addEventListener("touchstart", mkTouchStart, { passive: false });
+    el.addEventListener("touchmove", mkTouchMove, { passive: false });
+    el.addEventListener("touchend", mkTouchEnd, { passive: false });
+    el.addEventListener("touchcancel", mkTouchEnd, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", mkTouchStart);
+      el.removeEventListener("touchmove", mkTouchMove);
+      el.removeEventListener("touchend", mkTouchEnd);
+      el.removeEventListener("touchcancel", mkTouchEnd);
+    };
+  }, [treinPerspectief]);
+  const mkCtMax = tMax / mkZoom;
+  const mkXmax = tMax / mkZoom; // lichtkegel loopt bij ct=tMax tot x=±tMax
+  const mkMargin = 20;
+  const toMX = (x) => mkMargin + ((x - -mkXmax) / (2 * mkXmax)) * (mkW - 2 * mkMargin) + mkPanX;
+  const toMY = (ct) => (mkH - mkMargin) - (ct / mkCtMax) * (mkH - 2 * mkMargin) + mkPanY;
+
+
+  // Kiest een 'nette' stapgrootte (1, 2 of 5 × een macht van 10) voor een
+  // gegeven bereik -- hergebruikt door zowel de rechte als de gekantelde liniaal.
+  const nettteStap = (bereik) => {
+    const ruweStap = bereik / 8;
+    const macht = Math.pow(10, Math.floor(Math.log10(ruweStap)));
+    const genormaliseerd = ruweStap / macht;
+    return (genormaliseerd < 1.5 ? 1 : genormaliseerd < 3 ? 2 : genormaliseerd < 7 ? 5 : 10) * macht;
+  };
+
+  // Herbruikbare x-as liniaal: kiest een 'nette' stapgrootte en tekent
+  // kleine tikjes met getallen langs de gegeven y-hoogte.
+  const AsTicks = ({ toXFn, xMin, xMax, y, kleur = "#999" }) => {
+    const stap = nettteStap(xMax - xMin);
+    const start = Math.ceil(xMin / stap) * stap;
+    const ticks = [];
+    for (let x = start; x <= xMax; x += stap) {
+      if (Math.abs(x) < stap / 1000) x = 0; // voorkom -0.00
+      ticks.push(x);
+    }
+    return (
+      <>
+        {ticks.map((x, i) => (
+          <g key={i}>
+            <line x1={toXFn(x)} y1={y - 4} x2={toXFn(x)} y2={y + (i % 2 === 0 ? 4 : 12)} stroke={kleur} strokeWidth={1} />
+            <text x={toXFn(x)} y={y + (i % 2 === 0 ? 16 : 26)} fontSize={14.5} textAnchor="middle" fill={kleur}>
+              {x.toFixed(Math.abs(stap) < 1 ? 1 : 0)}
+            </text>
+          </g>
+        ))}
+      </>
+    );
+  };
+
+  // Tikjes langs de gekantelde x'-as (gelijktijdigheid trein-kader, t'=0).
+  // Een punt op afstand x' langs deze as heeft in het perron-kader de
+  // coördinaten (x,ct) = (γ·x', γ·v·x') -- de Lorentz-transformatie van
+  // (x'=x', t'=0) terug naar het perron-kader. De tikstreepjes staan
+  // loodrecht op de lijn ZOALS DIE OP HET SCHERM loopt (niet in data-
+  // eenheden), zodat ze er ook echt loodrecht uitzien ondanks dat x- en
+  // ct-as niet dezelfde pixel-per-eenheid schaal hebben.
+  const SchuinAsTicks = ({ bereikX, toXFn, toYFn, gammaVal, vVal, mkXmaxVal, mkCtMaxVal }) => {
+    const stap = nettteStap(2 * bereikX);
+    const ticks = [];
+    for (let k = Math.ceil(-bereikX / stap); k * stap <= bereikX; k++) {
+      const xAccent = k * stap === 0 ? 0 : k * stap;
+      const xPlat = gammaVal * xAccent;
+      const ctPlat = gammaVal * vVal * xAccent;
+      if (ctPlat >= -0.05 && ctPlat <= mkCtMaxVal && Math.abs(xPlat) <= mkXmaxVal) {
+        ticks.push({ xAccent, xPlat, ctPlat });
+      }
+    }
+    // schermrichting van de lijn zelf (constant, want een rechte lijn
+    // blijft recht onder een lineaire schaaltransformatie)
+    const sx0 = toXFn(0), sy0 = toYFn(0);
+    const sx1 = toXFn(gammaVal), sy1 = toYFn(gammaVal * vVal);
+    const dx = sx1 - sx0, dy = sy1 - sy0;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const perpX = -dy / len, perpY = dx / len; // loodrechte eenheidsvector
+
+    return (
+      <>
+        {ticks.map((tk, i) => {
+          const cx = toXFn(tk.xPlat), cy = toYFn(tk.ctPlat);
+          const label = tk.xAccent.toFixed(Math.abs(stap) < 1 ? 1 : 0);
+          const offset = i % 2 === 0 ? 13 : 24; // afwisselend verder weg, tegen overlap
+          return (
+            <g key={i}>
+              <line
+                x1={cx - perpX * 5} y1={cy - perpY * 5}
+                x2={cx + perpX * 5} y2={cy + perpY * 5}
+                stroke="#b8860b" strokeWidth={1.2}
+              />
+              <text
+                x={cx - perpX * offset} y={cy - perpY * offset + 3}
+                fontSize={14} textAnchor="middle" fill="#b8860b"
+              >
+                x′={label}
+              </text>
+            </g>
+          );
+        })}
+      </>
+    );
+  };
+
+  const Klok = ({ label, geraakt, waarde }) => (
+    <g>
+      <circle r={9} fill={geraakt ? "#22a55a" : "#999"} />
+      <text y={-14} fontSize={11} textAnchor="middle" fill="#333">{label}</text>
+      <text y={20} fontSize={11} textAnchor="middle" fill="#333" fontWeight={600}>
+        {waarde.toFixed(2)}
+      </text>
+    </g>
+  );
+
+  return (
+    <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 820, margin: "0 auto", padding: 16 }}>
+      <h2 style={{ fontSize: 18, marginBottom: 10 }}>Alle drie de effecten samen — zoals het echt gebeurt</h2>
+
+      {/* PANEEL 1 */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 2 }}>
+        PERRON-KADER — trein beweegt, gecontraheerd tot {Lc.toFixed(2)}
+      </div>
+      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8, display: "block" }}>
+        <line x1={0} y1={svgH / 2} x2={svgW} y2={svgH / 2} stroke="#ddd" strokeWidth={1} />
+        <AsTicks toXFn={toPX} xMin={xMin} xMax={xMax} y={svgH / 2 + 28} kleur="#999" />
+        <rect
+          x={toPX(platform.achterT)} y={svgH / 2 - 20}
+          width={toPX(platform.voorT) - toPX(platform.achterT)} height={40}
+          fill="rgba(70,130,180,0.2)" stroke="steelblue" strokeWidth={2} rx={5}
+        />
+        <circle cx={toPX(platform.middenT)} cy={svgH / 2} r={6} fill="gold" stroke="black" strokeWidth={1} />
+        <circle cx={toPX(-platform.straal)} cy={svgH / 2} r={5} fill="#ff8c00" />
+        <circle cx={toPX(platform.straal)} cy={svgH / 2} r={5} fill="#ff8c00" />
+        <g transform={`translate(${toPX(platform.achterT)}, ${svgH / 2 - 55})`}>
+          <Klok label="achter (τ)" geraakt={platform.achterGeraakt} waarde={platform.tauAchter} />
+        </g>
+        <g transform={`translate(${toPX(platform.voorT)}, ${svgH / 2 - 55})`}>
+          <Klok label="voor (τ)" geraakt={platform.voorGeraakt} waarde={platform.tauVoor} />
+        </g>
+      </svg>
+      <InfoGroup items={[
+        {
+          titel: "achter (τ)",
+          formule: "τ_achter = t/γ + v·L/2",
+          som: `${t.toFixed(3)}/${gamma.toFixed(3)} + ${vFrac.toFixed(2)}·${L.toFixed(2)}/2 = ${(t/gamma).toFixed(3)} + ${(vFrac*L/2).toFixed(3)} = ${platform.tauAchter.toFixed(3)}`,
+          waarom: "De achterklok staat vast op x′=−L/2 in het treinkader. De Lorentz-transformatie die de perron-tijd t omzet naar de eigen tijd t′ van een klok op vaste positie x′ is: t = γ(t′ + v·x′). Vul x′=−L/2 in: t = γ(t′ − v·L/2). Los dit op naar t′: t′ = t/γ + v·L/2. Het plusteken komt dus rechtstreeks uit het feit dat x′ hier negatief is (achterkant = negatieve kant) — het minteken in de transformatie slaat om naar een plus."
+        },
+        {
+          titel: "voor (τ)",
+          formule: "τ_voor = t/γ − v·L/2",
+          som: `${t.toFixed(3)}/${gamma.toFixed(3)} − ${vFrac.toFixed(2)}·${L.toFixed(2)}/2 = ${(t/gamma).toFixed(3)} − ${(vFrac*L/2).toFixed(3)} = ${platform.tauVoor.toFixed(3)}`,
+          waarom: "Zelfde afleiding als bij de achterklok, maar nu voor de voorklok op x′=+L/2. Vul dat in de transformatie t = γ(t′ + v·x′) in: t = γ(t′ + v·L/2), dus t′ = t/γ − v·L/2. Het minteken hier komt overeen met x′ die nu positief is. Het verschil tussen deze twee formules (het plus- versus het minteken) is precies wat de twee klokken uit elkaar laat lopen — dat IS relativiteit van gelijktijdigheid, in formulevorm."
+        }
+      ]} />
+
+      {/* PANEEL 2 -- direct onder paneel 1, minimale marge */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginTop: 4, marginBottom: 2 }}>
+        TREIN-EIGEN KADER — eigen lengte {L.toFixed(2)}, licht raakt beide kanten gelijktijdig
+      </div>
+      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8, display: "block" }}>
+        <line x1={0} y1={svgH / 2} x2={svgW} y2={svgH / 2} stroke="#ddd" strokeWidth={1} />
+        <AsTicks toXFn={toTX} xMin={xMin} xMax={xMax} y={svgH / 2 + 28} kleur="#999" />
+        <rect
+          x={toTX(-L / 2)} y={svgH / 2 - 20}
+          width={toTX(L / 2) - toTX(-L / 2)} height={40}
+          fill="rgba(70,130,180,0.2)" stroke="steelblue" strokeWidth={2} rx={5}
+        />
+        <circle cx={toTX(0)} cy={svgH / 2} r={6} fill="gold" stroke="black" strokeWidth={1} />
+        <circle cx={toTX(-train.straal)} cy={svgH / 2} r={5} fill="#ff8c00" />
+        <circle cx={toTX(train.straal)} cy={svgH / 2} r={5} fill="#ff8c00" />
+        <g transform={`translate(${toTX(-L / 2)}, ${svgH / 2 - 45})`}>
+          <Klok label="achter (τ)" geraakt={train.achterGeraakt} waarde={tTrein} />
+        </g>
+        <g transform={`translate(${toTX(L / 2)}, ${svgH / 2 - 45})`}>
+          <Klok label="voor (τ)" geraakt={train.voorGeraakt} waarde={tTrein} />
+        </g>
+      </svg>
+      <InfoGroup items={[
+        {
+          titel: "achter & voor (τ)",
+          formule: "τ = t′ (geen offset, want de trein staat hier stil)",
+          som: `t′ = ${tTrein.toFixed(3)} — beide klokken tonen exact hetzelfde, want in dit kader is er geen relatieve beweging tussen de klokken onderling.`,
+          waarom: "Een basisaanname van speciale relativiteit is: klokken die correct gesynchroniseerd zijn en stilstaan binnen HETZELFDE inertiaalstelsel, blijven voor altijd gelijk lopen — er is simpelweg geen mechanisme dat ze uit de pas laat lopen, zolang er geen relatieve beweging tussen die klokken is. In het treinkader bewegen achter- en voorklok niet ten opzichte van elkaar (ze zitten allebei vast aan dezelfde trein), dus blijven ze synchroon. Het offset dat je in het perron-paneel wél ziet, ontstaat uitsluitend omdát het perron naar deze klokken kijkt vanuit een kader waarin ze wél bewegen."
+        }
+      ]} />
+
+      {/* PANEEL 3: MINKOWSKI-DIAGRAM -- meebewegend met dezelfde slider */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4, marginBottom: 2, flexWrap: "wrap", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>
+          MINKOWSKI-DIAGRAM — {treinPerspectief
+            ? "trein-assen (zwart, recht) en perron-assen (goud, gekanteld)"
+            : "perron-assen (zwart) en trein-assen (goud, gekanteld)"}
+        </div>
+        <button
+          onClick={() => setTreinPerspectief(!treinPerspectief)}
+          style={{
+            fontSize: 11, padding: "4px 10px", borderRadius: 14, cursor: "pointer",
+            border: "1px solid #8e44ad", background: treinPerspectief ? "#8e44ad" : "#fff",
+            color: treinPerspectief ? "#fff" : "#8e44ad", fontWeight: 600
+          }}
+        >
+          ⇄ Bekijk vanuit: {treinPerspectief ? "trein" : "perron"}
+        </button>
+        {!treinPerspectief && (
+          <button
+            onClick={() => setToonHyperbolen(!toonHyperbolen)}
+            style={{
+              fontSize: 11, padding: "4px 10px", borderRadius: 14, cursor: "pointer",
+              border: "1px solid #666", background: toonHyperbolen ? "#666" : "#fff",
+              color: toonHyperbolen ? "#fff" : "#666", fontWeight: 600
+            }}
+          >
+            〰 IJk-hyperbolen: {toonHyperbolen ? "aan" : "uit"}
+          </button>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            onClick={() => setMkZoom((z) => Math.max(0.25, z / 1.4))}
+            style={{
+              fontSize: 13, width: 24, height: 24, borderRadius: 12, cursor: "pointer",
+              border: "1px solid #666", background: "#fff", color: "#666", fontWeight: 700,
+              lineHeight: 1, padding: 0
+            }}
+          >−</button>
+          <span style={{ fontSize: 10.5, color: "#666", minWidth: 34, textAlign: "center" }}>
+            {mkZoom.toFixed(2)}×
+          </span>
+          <button
+            onClick={() => setMkZoom((z) => Math.min(5, z * 1.4))}
+            style={{
+              fontSize: 13, width: 24, height: 24, borderRadius: 12, cursor: "pointer",
+              border: "1px solid #666", background: "#fff", color: "#666", fontWeight: 700,
+              lineHeight: 1, padding: 0
+            }}
+          >+</button>
+          {mkZoom !== 1 && (
+            <button
+              onClick={() => setMkZoom(1)}
+              style={{ fontSize: 10, color: "#8e44ad", background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+            >reset</button>
+          )}
+        </div>
+      </div>
+      {!treinPerspectief ? (
+      <div style={{ position: "relative" }}>
+        <svg
+          ref={mkSvgRef}
+          width="100%" viewBox={`0 0 ${mkW} ${mkH}`}
+          style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8, display: "block", touchAction: "none" }}
+          onMouseDown={mkMouseDown} onMouseMove={mkMouseMove} onMouseUp={mkMouseUp} onMouseLeave={mkMouseUp}
+        >
+        {/* lichtkegel vanaf de flits */}
+        <line x1={toMX(-mkXmax)} y1={toMY(mkXmax)} x2={toMX(0)} y2={toMY(0)} stroke="#ccc" strokeDasharray="4 3" />
+        <line x1={toMX(mkXmax)} y1={toMY(mkXmax)} x2={toMX(0)} y2={toMY(0)} stroke="#ccc" strokeDasharray="4 3" />
+
+        {/* perron-assen: x-as (ct=0) en ct-as (x=0) */}
+        <line x1={toMX(-mkXmax)} y1={toMY(0)} x2={toMX(mkXmax)} y2={toMY(0)} stroke="#333" strokeWidth={1.2} />
+        <line x1={toMX(0)} y1={toMY(0)} x2={toMX(0)} y2={toMY(mkCtMax)} stroke="#333" strokeWidth={1.2} />
+        <text x={toMX(mkXmax) - 4} y={toMY(0) - 6} fontSize={17.5} textAnchor="end" fill="#333">x</text>
+        <text x={toMX(0) + 6} y={toMY(mkCtMax) + 10} fontSize={17.5} fill="#333">ct</text>
+        <AsTicks toXFn={toMX} xMin={-mkXmax} xMax={mkXmax} y={toMY(0) + 4} kleur="#666" />
+
+        {/* trein-assen: ct'-as (wereldlijn treinmidden) en x'-as (gelijktijdigheid trein, t'=0) */}
+        <line x1={toMX(0)} y1={toMY(0)} x2={toMX(vFrac * mkCtMax)} y2={toMY(mkCtMax)} stroke="#b8860b" strokeWidth={1.2} />
+        <line x1={toMX(-mkXmax)} y1={toMY(-vFrac * mkXmax)} x2={toMX(mkXmax)} y2={toMY(vFrac * mkXmax)} stroke="#b8860b" strokeWidth={1} strokeDasharray="2 2" />
+        <text x={toMX(vFrac * mkCtMax) + 6} y={toMY(mkCtMax)} fontSize={17.5} fill="#b8860b">ct′</text>
+        <SchuinAsTicks
+          bereikX={mkXmax} toXFn={toMX} toYFn={toMY}
+          gammaVal={gamma} vVal={vFrac} mkXmaxVal={mkXmax} mkCtMaxVal={mkCtMax}
+        />
+
+        {/* IJK-HYPERBOLEN: x²-(ct)²=1 (ruimte, calibreert x') en
+            (ct)²-x²=1 (tijd, calibreert ct') -- schakelbaar, want het
+            diagram is al druk. Zelfde constructie als in de losse
+            lichtklok-tool: het snijpunt van elke as met "zijn" hyperbool
+            geeft het ECHTE ijkpunt (x′=1 resp. t′=1), gecorrigeerd voor
+            de kanteling. Vandaar naar de perron-as toe geeft direct L of Δt. */}
+        {toonHyperbolen && (() => {
+          const spacelikePts = [];
+          const timelikePts = [];
+          for (let phi = -1.2; phi <= 1.2; phi += 0.05) {
+            spacelikePts.push([Math.cosh(phi), Math.sinh(phi)]);
+            timelikePts.push([Math.sinh(phi), Math.cosh(phi)]);
+          }
+          const naarPad = (pts) => pts
+            .filter(([x, ct]) => Math.abs(x) <= mkXmax * 1.05 && ct >= -0.1 && ct <= mkCtMax * 1.05)
+            .map(([x, ct], i) => `${i === 0 ? "M" : "L"} ${toMX(x)} ${toMY(ct)}`).join(" ");
+
+          const P = [gamma, gamma * vFrac]; // calibratie x'=1
+          const Q = [gamma * vFrac, gamma]; // calibratie t'=1
+          const Lpunt = [1 / gamma, 0];
+
+          return (
+            <>
+              <path d={naarPad(spacelikePts)} fill="none" stroke="#999" strokeWidth={1} strokeDasharray="4 3" />
+              <path d={naarPad(timelikePts)} fill="none" stroke="#999" strokeWidth={1} strokeDasharray="4 3" />
+
+              {/* formule-labels, direct op de kromme zelf, op een rustige plek */}
+              {Math.cosh(0.3) <= mkXmax && Math.sinh(0.3) <= mkCtMax && (
+                <text
+                  x={toMX(Math.cosh(0.3)) + 6} y={toMY(Math.sinh(0.3))}
+                  fontSize={16} fill="#666" fontStyle="italic" fontWeight={600}
+                >
+                  x²−(ct)²=1
+                </text>
+              )}
+              {Math.sinh(-0.3) >= -mkXmax && Math.cosh(-0.3) <= mkCtMax && (
+                <text
+                  x={toMX(Math.sinh(-0.3)) - 6} y={toMY(Math.cosh(-0.3)) - 6}
+                  fontSize={16} fill="#666" textAnchor="end" fontStyle="italic" fontWeight={600}
+                >
+                  (ct)²−x²=1
+                </text>
+              )}
+
+              {P[1] <= mkCtMax && (
+                <>
+                  <circle cx={toMX(P[0])} cy={toMY(P[1])} r={4} fill="#2a9d5c" />
+                  <text x={toMX(P[0]) + 6} y={toMY(P[1]) - 4} fontSize={14.5} fill="#2a9d5c" fontWeight={600}>x′=1</text>
+                  <line x1={toMX(P[0])} y1={toMY(P[1])} x2={toMX(Lpunt[0])} y2={toMY(Lpunt[1])} stroke="#e05555" strokeWidth={1.5} strokeDasharray="3 2" />
+                  <circle cx={toMX(Lpunt[0])} cy={toMY(Lpunt[1])} r={4} fill="#e05555" />
+                  <text x={toMX(Lpunt[0])} y={toMY(Lpunt[1]) + 16} fontSize={14.5} fill="#e05555" textAnchor="middle" fontWeight={600}>
+                    L={Lpunt[0].toFixed(2)}
+                  </text>
+                </>
+              )}
+
+              {Q[1] <= mkCtMax && (
+                <>
+                  <circle cx={toMX(Q[0])} cy={toMY(Q[1])} r={4} fill="#8e44ad" />
+                  <text x={toMX(Q[0]) + 6} y={toMY(Q[1]) + 4} fontSize={14.5} fill="#8e44ad" fontWeight={600}>t′=1</text>
+                  <line x1={toMX(Q[0])} y1={toMY(Q[1])} x2={toMX(0)} y2={toMY(Q[1])} stroke="#8e44ad" strokeWidth={1.5} strokeDasharray="3 2" />
+                  <text x={toMX(0) - 6} y={toMY(Q[1]) - 4} fontSize={14.5} fill="#8e44ad" textAnchor="end" fontWeight={600}>
+                    Δt=γ={gamma.toFixed(2)}
+                  </text>
+                </>
+              )}
+            </>
+          );
+        })()}
+
+        {/* tijdstikken: zwart=t (perron) op RONDE getallen, goud=t'=t/γ
+            (trein) volgt daar automatisch uit -- inclusief het verschil
+            (Δ) tussen opeenvolgende tikken op beide assen */}
+        {(() => {
+          const stap = nettteStap(mkCtMax * 8 / 5); // bias naar ~5 tikken i.p.v. ~8
+          const tikken = [];
+          let vorigeTauK = 0;
+          let idx = 0;
+          for (let t_k = stap; t_k <= mkCtMax + stap / 1000; t_k += stap) {
+            const tau_k = t_k / gamma;
+            const deltaTau = tau_k - vorigeTauK;
+            vorigeTauK = tau_k;
+            const xGoud = vFrac * t_k;
+            const zwartOffset = idx % 2 === 0 ? 0.18 : 0.32; // afwisselend verder naar links
+            const goudOffset = idx % 2 === 0 ? 8 : 20; // afwisselend verder naar rechts
+            idx++;
+            // zwarte tik op de ct-as (x=0) -- steeds +stap (rond getal)
+            tikken.push(
+              <g key={`z${t_k}`}>
+                <line x1={toMX(-0.12)} y1={toMY(t_k)} x2={toMX(0.12)} y2={toMY(t_k)} stroke="#333" strokeWidth={1} />
+                <text x={toMX(-zwartOffset)} y={toMY(t_k) + 3} fontSize={14} textAnchor="end" fill="#333">
+                  t={t_k.toFixed(Math.abs(stap) < 1 ? 1 : 0)} (Δ=+{stap.toFixed(Math.abs(stap) < 1 ? 1 : 0)})
+                </text>
+              </g>
+            );
+            // gouden tik op de ct'-as, zelfde ct-hoogte -- t'_k volgt uit t_k/γ,
+            // dus NIET rond, met eigen (kleinere) Δ per stap
+            tikken.push(
+              <g key={`g${t_k}`}>
+                <line
+                  x1={toMX(xGoud - 0.09)} y1={toMY(t_k) + 5}
+                  x2={toMX(xGoud + 0.09)} y2={toMY(t_k) - 5}
+                  stroke="#b8860b" strokeWidth={1}
+                />
+                <circle cx={toMX(xGoud)} cy={toMY(t_k)} r={2} fill="#b8860b" />
+                <text x={toMX(xGoud) + goudOffset} y={toMY(t_k) + 3} fontSize={14} fill="#b8860b">
+                  t′={tau_k.toFixed(2)} (Δ=+{deltaTau.toFixed(2)})
+                </text>
+                {/* dunne hulplijn evenwijdig aan de x'-as, door dit punt --
+                    ct = v·x + (t_k − v·xGoud), dus zelfde richting v als de
+                    x'-as zelf, verschoven zodat hij door (xGoud, t_k) gaat */}
+                <line
+                  x1={toMX(-mkXmax)} y1={toMY(vFrac * -mkXmax + (t_k - vFrac * xGoud))}
+                  x2={toMX(mkXmax)} y2={toMY(vFrac * mkXmax + (t_k - vFrac * xGoud))}
+                  stroke="#b8860b" strokeWidth={0.6} strokeDasharray="2 3" opacity={0.5}
+                />
+              </g>
+            );
+          }
+          return tikken;
+        })()}
+
+        {/* TWEEDE reeks: eigen RONDE t'-tikken op de ct'-as zelf, op hun
+            eigen (andere) hoogte -- dus niet gekoppeld aan de zwarte
+            t-tikken. Positie van een punt bij eigen tijd τ op de ct'-as:
+            (x,ct) = (γ·v·τ, γ·τ). Ander markertje (vierkantje) om ze te
+            onderscheiden van de gepaarde tikken hierboven. */}
+        {(() => {
+          const tauMax = mkCtMax / gamma; // bereik van de ct'-as binnen dit diagram
+          const stapTau = nettteStap(tauMax * 8 / 5);
+          const tikken = [];
+          let idx2 = 0;
+          for (let tau_k = stapTau; tau_k <= tauMax + stapTau / 1000; tau_k += stapTau) {
+            const x = gamma * vFrac * tau_k;
+            const ct = gamma * tau_k;
+            const offset = idx2 % 2 === 0 ? 8 : 20;
+            idx2++;
+            tikken.push(
+              <g key={`rt${tau_k}`}>
+                <rect x={toMX(x) - 3} y={toMY(ct) - 3} width={6} height={6} fill="#fff" stroke="#8a6300" strokeWidth={1.2} transform={`rotate(45 ${toMX(x)} ${toMY(ct)})`} />
+                <text x={toMX(x) - offset} y={toMY(ct) - 8} fontSize={14} textAnchor="end" fill="#8a6300" fontWeight={600}>
+                  t′={tau_k.toFixed(Math.abs(stapTau) < 1 ? 1 : 0)} (Δ=+{stapTau.toFixed(Math.abs(stapTau) < 1 ? 1 : 0)})
+                </text>
+              </g>
+            );
+          }
+          return tikken;
+        })()}
+
+        {/* wereldlijnen achter- en voorkant trein */}
+        <line x1={toMX(-Lc / 2)} y1={toMY(0)} x2={toMX(vFrac * mkCtMax - Lc / 2)} y2={toMY(mkCtMax)} stroke="steelblue" strokeWidth={1.5} />
+        <line x1={toMX(Lc / 2)} y1={toMY(0)} x2={toMX(vFrac * mkCtMax + Lc / 2)} y2={toMY(mkCtMax)} stroke="steelblue" strokeWidth={1.5} />
+
+        {/* INHAALPUNT: hier is de perron-tijd t exact gelijk aan de
+            (berekende) klokstand van de achterklok, tau_achter(t)=t.
+            Volgt uit t/gamma + vL/2 = t  ->  t = (vL/2)/(1-1/gamma) */}
+        {(() => {
+          const tInhaal = (vFrac * L / 2) / (1 - 1 / gamma);
+          if (tInhaal < 0 || tInhaal > mkCtMax) return null;
+          const xInhaal = vFrac * tInhaal - Lc / 2;
+          if (Math.abs(xInhaal) > mkXmax) return null;
+          return (
+            <g>
+              <line x1={toMX(-mkXmax)} y1={toMY(tInhaal)} x2={toMX(mkXmax)} y2={toMY(tInhaal)} stroke="#8e44ad" strokeWidth={0.8} strokeDasharray="2 3" opacity={0.6} />
+              <circle cx={toMX(xInhaal)} cy={toMY(tInhaal)} r={5} fill="#8e44ad" />
+              <text x={toMX(xInhaal) + 8} y={toMY(tInhaal) - 6} fontSize={13} fill="#8e44ad" fontWeight={700}>
+                inhaalmoment: t=τ_achter={tInhaal.toFixed(2)}
+              </text>
+            </g>
+          );
+        })()}
+
+        {/* gebeurtenissen: licht raakt achter/voor -- kleur toont welke
+            'nu'-lijn(en) er al doorheen zijn gegaan (rood=perron, groen=trein) */}
+        {(() => {
+          const achterRood = platform.achterGeraakt;
+          const achterGroen = train.achterGeraakt; // = t >= L/2, geldt voor beide stippen
+          const achterKleur = achterRood && achterGroen ? "#8e44ad" : achterRood ? "#e05555" : achterGroen ? "#2a9d5c" : "#999";
+
+          const voorRood = platform.voorGeraakt;
+          const voorGroen = train.voorGeraakt;
+          const voorKleur = voorRood && voorGroen ? "#8e44ad" : voorRood ? "#e05555" : voorGroen ? "#2a9d5c" : "#999";
+
+          return (
+            <>
+              <circle cx={toMX(-platform.tAchter)} cy={toMY(platform.tAchter)} r={5} fill={achterKleur} />
+              <text x={toMX(-platform.tAchter) - 6} y={toMY(platform.tAchter) - 8} fontSize={14.5} textAnchor="end" fill="#555">
+                t_achter={platform.tAchter.toFixed(2)}
+              </text>
+              <circle cx={toMX(platform.tVoor)} cy={toMY(platform.tVoor)} r={5} fill={voorKleur} />
+              <text x={toMX(platform.tVoor) + 6} y={toMY(platform.tVoor) - 8} fontSize={14.5} fill="#555">
+                t_voor={platform.tVoor.toFixed(2)}
+              </text>
+            </>
+          );
+        })()}
+
+        {/* horizontale 'nu'-lijn: perron-gelijktijdigheid bij huidige t */}
+        <line x1={toMX(-mkXmax)} y1={toMY(t)} x2={toMX(mkXmax)} y2={toMY(t)} stroke="#e05555" strokeWidth={1} strokeDasharray="3 3" />
+        {/* gekantelde 'nu'-lijn: trein-gelijktijdigheid bij huidige eigen tijd t (=tTrein) */}
+        <line
+          x1={toMX(-mkXmax)} y1={toMY(vFrac * -mkXmax + t / gamma)}
+          x2={toMX(mkXmax)} y2={toMY(vFrac * mkXmax + t / gamma)}
+          stroke="#2a9d5c" strokeWidth={1} strokeDasharray="3 3"
+        />
+
+        {/* live snijpunten van de rode nu-lijn met de wereldlijnen -- exact
+            dezelfde tau_achter/tau_voor als afgelezen in paneel 1 hierboven */}
+        <circle cx={toMX(platform.achterT)} cy={toMY(t)} r={3.5} fill="#e05555" />
+        <text x={toMX(platform.achterT)} y={toMY(t) - 8} fontSize={14.5} textAnchor="middle" fill="#e05555" fontWeight={600}>
+          τ={platform.tauAchter.toFixed(2)}
+        </text>
+        <circle cx={toMX(platform.voorT)} cy={toMY(t)} r={3.5} fill="#e05555" />
+        <text x={toMX(platform.voorT)} y={toMY(t) - 8} fontSize={14.5} textAnchor="middle" fill="#e05555" fontWeight={600}>
+          τ={platform.tauVoor.toFixed(2)}
+        </text>
+
+        {/* "ruit"-constructie: rechte lijn omlaag naar de x-as (x aflezen) en
+            schuine lijn evenwijdig aan de ct'-as naar de x'-as (x' aflezen)
+            -- beide vanaf de bewegende achter/voor-punten, lopen dus mee met t */}
+        {[
+          { x0: platform.achterT, kleur: "#e05555", naam: "achter" },
+          { x0: platform.voorT, kleur: "#e05555", naam: "voor" },
+        ].map((pt, i) => {
+          const xAccent = gamma * (pt.x0 - vFrac * t);
+          // schuine lijn naar de x'-as: x = x0 + v*(ct - t), geclipt op ct in [0, mkCtMax] en |x|<=mkXmax
+          let ctEind = 0;
+          let xEind = pt.x0 + vFrac * (ctEind - t);
+          if (Math.abs(xEind) > mkXmax) {
+            xEind = Math.sign(xEind) * mkXmax;
+            ctEind = t + (xEind - pt.x0) / vFrac;
+          }
+          // schuine lijn naar de ct'-as: evenwijdig aan de x'-as (helling v),
+          // snijpunt met ct'-as (x=v*ct) geeft de tau-waarde -- beweegt mee met t
+          const xCtSnij = vFrac * gamma * gamma * (t - vFrac * pt.x0);
+          const ctCtSnij = xCtSnij / vFrac;
+          const tauHier = ctCtSnij / gamma;
+          return (
+            <g key={i}>
+              {/* schuine lijn evenwijdig aan ct'-as, naar de x'-as toe */}
+              <line x1={toMX(pt.x0)} y1={toMY(t)} x2={toMX(xEind)} y2={toMY(ctEind)} stroke="#b8860b" strokeWidth={0.6} strokeDasharray="2 3" opacity={0.6} />
+              <text x={toMX(xEind)} y={toMY(ctEind) + (ctEind <= 0.01 ? 24 : -6)} fontSize={13} textAnchor="middle" fill="#b8860b">
+                x′({pt.naam})={xAccent.toFixed(2)}
+              </text>
+              {/* schuine lijn evenwijdig aan x'-as, naar de ct'-as toe (tau aflezen) */}
+              {xCtSnij >= -mkXmax && xCtSnij <= mkXmax && ctCtSnij >= -0.02 && ctCtSnij <= mkCtMax && (
+                <>
+                  <line x1={toMX(pt.x0)} y1={toMY(t)} x2={toMX(xCtSnij)} y2={toMY(ctCtSnij)} stroke="#1a7a4c" strokeWidth={0.9} strokeDasharray="1 3" opacity={0.85} />
+                  <circle cx={toMX(xCtSnij)} cy={toMY(ctCtSnij)} r={2.5} fill="#1a7a4c" />
+                  <text x={toMX(xCtSnij) + 6} y={toMY(ctCtSnij) - 4} fontSize={14} fill="#1a7a4c" fontWeight={600}>
+                    τ({pt.naam})={tauHier.toFixed(2)}
+                  </text>
+                </>
+              )}
+            </g>
+          );
+        })}
+
+        {/* zelfde constructie, nu voor de groene (trein-)nu-lijn: waar die
+            de wereldlijnen snijdt, plus rechte lijn naar x-as en schuine
+            lijn naar de x'-as. Ook hier geldt x'=±L/2 -- logisch, want dit
+            IS per definitie de gelijktijdigheidslijn van de trein zelf. */}
+        {(() => {
+          // snijpunt groene lijn (ct=v*x+t/gamma) met achter-wereldlijn (ct=(x+Lc/2)/v)
+          const xAchterGroen = gamma * (vFrac * t - L / 2);
+          const ctAchterGroen = vFrac * xAchterGroen + t / gamma;
+          // snijpunt met voor-wereldlijn (ct=(x-Lc/2)/v)
+          const xVoorGroen = gamma * (vFrac * t + L / 2);
+          const ctVoorGroen = vFrac * xVoorGroen + t / gamma;
+
+          return [
+            { x0: xAchterGroen, ct0: ctAchterGroen, naam: "achter" },
+            { x0: xVoorGroen, ct0: ctVoorGroen, naam: "voor" },
+          ].map((pt, i) => {
+            // buiten het diagram? dan niet tekenen
+            if (pt.ct0 < -0.02 || pt.ct0 > mkCtMax || Math.abs(pt.x0) > mkXmax) return null;
+            // schuine lijn naar de x'-as (evenwijdig aan ct'-as: x = x0 + v*(ct-ct0))
+            let ctEind = 0;
+            let xEind = pt.x0 + vFrac * (ctEind - pt.ct0);
+            if (Math.abs(xEind) > mkXmax) {
+              xEind = Math.sign(xEind) * mkXmax;
+              ctEind = pt.ct0 + (xEind - pt.x0) / vFrac;
+            }
+            // x'-waarde op dit punt (hoort bij het label)
+            const xAccentGroen = gamma * (pt.x0 - vFrac * pt.ct0);
+            return (
+              <g key={`gr${i}`}>
+                <circle cx={toMX(pt.x0)} cy={toMY(pt.ct0)} r={3.5} fill="#2a9d5c" />
+                <text
+                  x={toMX(pt.x0)} y={toMY(pt.ct0) - 8}
+                  fontSize={14.5} textAnchor="middle" fill="#2a9d5c" fontWeight={600}
+                >
+                  t′({pt.naam})={tTrein.toFixed(2)}
+                </text>
+                {/* schuine lijn naar de x'-as */}
+                <line x1={toMX(pt.x0)} y1={toMY(pt.ct0)} x2={toMX(xEind)} y2={toMY(ctEind)} stroke="#2a9d5c" strokeWidth={0.6} strokeDasharray="2 3" opacity={0.6} />
+                <text x={toMX(xEind)} y={toMY(ctEind) + (ctEind <= 0.01 ? 24 : -6)} fontSize={13} textAnchor="middle" fill="#2a9d5c" fontWeight={600}>
+                  x′({pt.naam})={xAccentGroen.toFixed(2)}
+                </text>
+              </g>
+            );
+          });
+        })()}
+
+        {/* huidige positie-stip op elke as, met live label */}
+        <circle cx={toMX(0)} cy={toMY(t)} r={4} fill="#e05555" />
+        <text x={toMX(0) - 8} y={toMY(t) + 4} fontSize={14.5} textAnchor="end" fill="#e05555" fontWeight={600}>
+          t={t.toFixed(2)}
+        </text>
+        <circle cx={toMX(gamma * vFrac * t)} cy={toMY(gamma * t)} r={4} fill="#2a9d5c" />
+        <text x={toMX(gamma * vFrac * t) + 8} y={toMY(gamma * t) + 4} fontSize={14.5} fill="#2a9d5c" fontWeight={600}>
+          t′={tTrein.toFixed(2)}
+        </text>
+        </svg>
+        <div style={{
+          position: "absolute", top: 6, left: 6, display: "flex", alignItems: "center", gap: 6,
+          background: "rgba(255,255,255,0.9)", border: "1px solid #ddd", borderRadius: 12,
+          padding: "3px 8px", fontSize: 10.5, color: "#555", pointerEvents: "none"
+        }}>
+          <span>{mkZoom.toFixed(2)}×</span>
+          {(mkZoom !== 1 || mkPanX !== 0 || mkPanY !== 0) && (
+            <button
+              onClick={() => { setMkZoom(1); setMkPanX(0); setMkPanY(0); }}
+              style={{
+                fontSize: 10, color: "#8e44ad", background: "none", border: "none",
+                cursor: "pointer", padding: 0, pointerEvents: "auto", textDecoration: "underline"
+              }}
+            >reset</button>
+          )}
+        </div>
+      </div>
+      ) : (
+      <TreinNatiefDiagram
+        L={L} vFrac={vFrac} gamma={gamma} t={t} tMax={tMax} mkZoom={mkZoom}
+        mkW={mkW} mkH={mkH} platform={platform}
+      />
+      )}
+      <label style={{ display: "block", fontSize: 13, marginTop: 8, marginBottom: 4 }}>
+        Tijd t: <b>{t.toFixed(3)}</b>
+        <InfoKnop uitleg="De coördinatentijd: een afspraak-label uit een netwerk van synchrone klokken. Wordt hier rechtstreeks (zelfde getal) gebruikt voor zowel het perron- als het trein-paneel — zie de waarschuwing verderop waarom dat geen 'gedeeld nu' betekent." />
+        {echteSeconden !== null && (
+          <span style={{ color: "#8e44ad", fontWeight: 600 }}>
+            &nbsp;≈ {echteSeconden.toExponential(3)} s
+          </span>
+        )}
+        <input type="range" min={0} max={tMax} step={tMax / 400} value={t}
+          onChange={(e) => setT(parseFloat(e.target.value))}
+          style={{ width: "100%" }} />
+      </label>
+
+      <InfoGroup items={!treinPerspectief ? [
+        {
+          titel: "Wat is het paarse inhaalmoment?",
+          formule: "t = τ_achter(t)  →  t_inhaal = (v·L/2) / (1 − 1/γ)",
+          som: `De achterklok heeft bij t=0 al een voorsprong van v·L/2=${(vFrac*L/2).toFixed(3)}, maar tikt trager (factor 1/γ=${(1/gamma).toFixed(3)}) dan de perronklok. Op t_inhaal=${((vFrac*L/2)/(1-1/gamma)).toFixed(3)} heeft de perronklok dat gat volledig ingelopen — daarna staat de perronklok zelf vóór op de (berekende) achterklok-stand.`,
+          waarom: "τ_achter(t) = t/γ + vL/2 is een rechte lijn in t met helling 1/γ<1 en een positief startpunt. De perronklok zelf is de lijn t=t, met helling 1 en startpunt 0. Twee rechte lijnen met verschillende helling snijden elkaar altijd ergens — hier is dat het punt waar de aanvankelijke voorsprong precies is weggewerkt door het cumulatieve verschil in tiksnelheid. Vóór dit moment loopt de achterklok voor; erna loopt de perronklok zelf voor."
+        },
+        {
+          titel: "Wat doen de ijk-hyperbolen?",
+          formule: "x²−(ct)²=1 (ruimte) en (ct)²−x²=1 (tijd)",
+          som: `Zet de knop 〰 IJk-hyperbolen aan om ze te zien. Het groene punt (waar de x′-as de ruimte-hyperbool snijdt) is het ECHTE punt "x′=1" — gecorrigeerd voor de kanteling. Volg de rode stippellijn (evenwijdig aan de ct′-as) naar beneden: dat geeft direct L=1/γ=${(1/gamma).toFixed(3)}. Het paarse punt (op de tijd-hyperbool) is "t′=1"; de ct-waarde daarvan aflezen geeft direct Δt=γ=${gamma.toFixed(3)}.`,
+          waarom: "Dit is het hyperbolische equivalent van een cirkel x²+y²=1 die elk gekanteld (gewoon, Euclidisch) assenstelsel op dezelfde manier ijkt. In een Minkowski-diagram geldt niet x²+ct²=constant maar x²−(ct)²=constant (het 'invariante interval') — vandaar de hyperbool in plaats van de cirkel. Beide krommen komen uit precies dezelfde wiskunde; het enige verschil is welke kant je de vergelijking om buigt (ruimte-achtig of tijd-achtig interval)."
+        },
+        {
+          titel: "Hoe komt een tijdstik aan zijn getal?",
+          formule: "t_k = k · stap  (rond getal),  t′_k = t_k / γ  (volgt automatisch, niet rond)",
+          som: `Het diagram-plafond ct_max=${mkCtMax.toFixed(3)} volgt uit de langste van de twee komende gebeurtenissen (t_voor=${platform.tVoor.toFixed(3)} of t_hit_trein=${tHitTrein.toFixed(3)}), met 15% marge. Daarbinnen kiest de tool een NETTE stapgrootte (1, 2 of 5 × een macht van 10) zodat de zwarte t-tikken op ronde getallen staan, zoals 0.2 – 0.4 – 0.6 – ... Elke stap Δt is dus steeds hetzelfde ronde getal. De gouden t′-tikken volgen daar vanzelf uit via t′=t/γ — met een eigen, kleinere Δt′ per stap (want γ>1), wat precies het tijdsdilatatie-verschil zichtbaar maakt.`,
+          waarom: "t_k zelf is een keuze van de tool (geen natuurkunde) — gewoon een leesbaar rooster kiezen op de as die je toch al tekent. Het plafond wordt bepaald door wanneer de laatste interessante gebeurtenis plaatsvindt (licht dat de voorkant raakt, of het treinkader waar het licht beide wanden raakt), plus 15% lucht zodat de laatste tik niet precies op de rand valt. Waarom t′_k daarna NIET rond is: t′ volgt uit t via t′=t/γ (zie de volgende knop voor die afleiding) — en delen door een niet-geheel getal γ maakt van een rond getal vrijwel nooit weer een rond getal."
+        },
+        {
+          titel: "Waarom twee reeksen tikken op de ct′-as?",
+          formule: "Rondjes: t′=t_k/γ (gekoppeld aan zwart). Ruitjes: eigen ronde t′-stappen.",
+          som: "De rondjes staan op DEZELFDE hoogte als de zwarte t-tikken (handig om t vs t' direct te vergelijken, maar t' zelf is niet rond daar). De ruitjes zijn een aparte reeks: hier is t' zélf afgerond (0.2, 0.4, ...), en die staan daardoor op hun EIGEN, hogere posities langs de ct'-as — want om een rond stapje in eigen tijd te zetten, moet je in perron-coördinatentijd een factor γ verder springen.",
+          waarom: "Een punt op de ct′-as bij eigen tijd τ heeft in perron-coördinaten de positie (x,ct)=(γ·v·τ, γ·τ) — dat volgt rechtstreeks uit de inverse Lorentz-transformatie toegepast op x′=0. Wil je dus een rond τ (zoals 0,2 of 0,4), dan moet je in perron-ct-termen naar γ·τ springen — dat is groter dan τ zelf (want γ>1), dus die ruitjes liggen letterlijk hoger dan je zou verwachten als je alleen naar τ zelf keek. De rondjes doen het omgekeerde: zij fixeren eerst t (rond), en laten τ=t/γ er willekeurig uitrollen."
+        },
+        {
+          titel: "Tijdstikken: waarom t′ < t op dezelfde hoogte?",
+          formule: "t′_k = t_k / γ",
+          som: `Bij elke zwarte tik op hoogte ct=t_k hoort een gouden tik op DEZELFDE hoogte, maar met eigen-tijd t′_k = t_k/γ = t_k/${gamma.toFixed(3)}. Bijvoorbeeld bij t=${mkCtMax.toFixed(2)} (bovenste tik): t′=${(mkCtMax/gamma).toFixed(3)}. De gouden (bewegende) klok heeft dus minder eigen tijd afgelegd dan de zwarte (perron-)klok bij exact dezelfde coördinatentijd — dat IS tijdsdilatatie.`,
+          waarom: "Dit volgt direct uit de Lorentz-transformatie t′=γ(t−v·x), toegepast op punten die OP de ct′-as liggen (dus x=v·t, de wereldlijn van het treinmidden): t′=γ(t−v·(vt))=γ·t·(1−v²)=γt/γ²=t/γ. Omdat γ altijd groter is dan 1 (zolang v>0), is t/γ altijd kleiner dan t. Dat is precies tijdsdilatatie: een bewegende klok (hier de trein, die dit stukje van de ct′-as vertegenwoordigt) tikt trager dan de perronklok, gemeten op hetzelfde perron-moment."
+        },
+        {
+          titel: "Waarom staan τ-labels ook hier?",
+          formule: "Zelfde τ_achter, τ_voor als in paneel 1",
+          som: `De rode stippen waar de horizontale nu-lijn de blauwe wereldlijnen snijdt, tonen dezelfde τ_achter=${platform.tauAchter.toFixed(2)} en τ_voor=${platform.tauVoor.toFixed(2)} als onder de klokjes in het perron-paneel hierboven. Het is letterlijk hetzelfde getal, nu geometrisch getoond als snijpunt in plaats van als klok-icoon.`,
+          waarom: "Een snijpunt in het Minkowski-diagram en een uitkomst van een formule zijn twee manieren om precies hetzelfde te zeggen. Het snijpunt van de horizontale rode lijn (ct=t, perron-gelijktijdigheid) met de blauwe wereldlijn van bijvoorbeeld de achterkant, ligt op de positie x=achterT — en de eigen tijd die daar hoort (via Lorentz-transformatie t′=γ(t−v·x)) is exact dezelfde uitkomst als de algebraïsche formule τ_achter=t/γ+v·L/2 uit paneel 1. Geometrie en algebra zijn hier consistent, want ze beschrijven dezelfde onderliggende Lorentz-transformatie."
+        }
+      ] : [
+        {
+          titel: "Wat is er precies omgedraaid?",
+          formule: "X=γ(x−vt),  CT=γ(ct−vx)  (dezelfde Lorentz-transformatie, nu de andere kant op)",
+          som: "De trein staat nu stil (zwarte, rechte assen) en het perron beweegt met −v (goud, gekanteld). De lichtkegel verandert niet van vorm — licht gaat in ELK kader met dezelfde snelheid, dat is precies het uitgangspunt van relativiteit. De achter/voor-gebeurtenissen liggen hier triviaal op (∓L/2, L/2): in het eigen kader van de trein waren ze altijd al gelijktijdig.",
+          waarom: "Deze formules zijn exact dezelfde Lorentz-transformatie die overal in de tool wordt gebruikt om van perron- naar treincoördinaten te gaan (x,ct)→(X,CT). Het enige dat 'omdraait', is welk kader we als uitgangspunt nemen om te tekenen: normaal tekenen we in (x,ct) en berekenen we (X,CT) als afgeleide grootheid; hier draaien we dat om en tekenen we rechtstreeks in (X,CT), met (x,ct) als de afgeleide, gekantelde assen. De natuurkunde verandert niet — alleen het perspectief van waaruit je tekent."
+        },
+        {
+          titel: "Waar is de treinlengte L?",
+          formule: "L = afstand tussen de twee verticale blauwe wereldlijnen",
+          som: `De blauwe lijnen bij x′=−${(L/2).toFixed(2)} en x′=+${(L/2).toFixed(2)} zijn hier verticaal (de trein staat stil in dit kader) — het label 'L=...' staat er nu ook direct bij getekend, tussen de twee lijnen in.`,
+          waarom: "L is per definitie de lengte van de trein zoals gemeten in zijn EIGEN rustkader — dat is precies het kader dat je nu bekijkt. Daarom is dit de enige weergave waarin je de lengte zonder enige berekening of correctie rechtstreeks van de tekening kunt aflezen: gewoon de afstand tussen de twee verticale lijnen. In het perron-paneel moet je eerst corrigeren voor lengtecontractie (L/γ) om bij dezelfde trein uit te komen — hier hoeft dat niet."
+        }
+      ]} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, color: "#555", marginBottom: 10, flexWrap: "wrap" }}>
+        <span>1 ruimte-eenheid staat voor</span>
+        <input
+          type="number" value={eenheidMeter} min={0.001}
+          onChange={(e) => setEenheidMeter(parseFloat(e.target.value) || 0)}
+          style={{ width: 90, fontSize: 12, padding: "2px 4px" }}
+        />
+        <span>meter</span>
+        <button
+          onClick={() => setEenheidMeter(299792458)}
+          style={{ fontSize: 10.5, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#fff", cursor: "pointer" }}
+        >1 lichtseconde</button>
+        <button
+          onClick={() => setEenheidMeter(1000)}
+          style={{ fontSize: 10.5, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#fff", cursor: "pointer" }}
+        >1 km</button>
+      </div>
+
+      <p style={{ fontSize: 10.5, color: "#777", marginBottom: 10, lineHeight: 1.3 }}>
+        Zwart = perron-assen, goud = trein-assen. Rode lijn = perron-nu, groene lijn =
+        trein-nu. Stip-kleur: <span style={{color:"#999"}}>grijs</span>→<span style={{color:"#e05555"}}>rood</span>/
+        <span style={{color:"#2a9d5c"}}>groen</span>→<span style={{color:"#8e44ad"}}>paars</span> zodra
+        die nu-lijn erover heen is. Let op: bij "achter" komt rood eerst, bij "voor" komt
+        groen eerst — omgekeerde volgorde per kader.
+      </p>
+
+      <div style={{
+        fontSize: 11, color: "#8a5a00", marginBottom: 14, lineHeight: 1.4,
+        background: "#fff8e6", border: "1px solid #f0dca0", borderRadius: 6, padding: "6px 10px"
+      }}>
+        ⚠️ Dezelfde t stuurt beide panelen aan zodat het licht in beide even snel
+        beweegt — maar het betekent boven "perron-seconden" en onder "trein-seconden":
+        twee losse, niet-gelijktijdige klokken op één gedeelde afspeelknop.
+      </div>
+
+      {/* OVERIGE SLIDERS -- kort onder de tijdslider */}
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 14 }}>
+        <label style={{ flex: 1, minWidth: 180, fontSize: 13 }}>
+          Snelheid: <b>{vFrac.toFixed(2)}c</b>
+          <input type="range" min={0.05} max={0.95} step={0.05} value={vFrac}
+            onChange={(e) => { setVFrac(parseFloat(e.target.value)); setT(0); }}
+            style={{ width: "100%" }} />
+        </label>
+        <label style={{ flex: 1, minWidth: 180, fontSize: 13 }}>
+          Eigen lengte: <b>{L.toFixed(1)}</b>
+          <input type="range" min={1} max={5} step={0.5} value={L}
+            onChange={(e) => { setL(parseFloat(e.target.value)); setT(0); }}
+            style={{ width: "100%" }} />
+        </label>
+      </div>
+
+      <SleepCirkel vFrac={vFrac} setVFrac={setVFrac} L={L} setT={setT} />
+
+      {/* Kerngetallen */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: 10, marginBottom: 16
+      }}>
+        <Getal label="Lorentzfactor γ" waarde={gamma.toFixed(3)}
+          uitleg="γ = 1/√(1−v²/c²). Deze ene factor stuurt alle drie de effecten: lengtecontractie, tijdsdilatatie en de gelijktijdigheids-offset." />
+        <Getal label="Eigen lengte L" waarde={L.toFixed(2)}
+          uitleg="Hoe lang de trein is volgens zijn eigen passagiers, gemeten terwijl de trein voor hen stilstaat." />
+        <Getal label="Lengte in perron-kader (L/γ)" waarde={Lc.toFixed(2)}
+          uitleg="Hoe lang de trein eruitziet voor iemand op het perron die hem voorbij ziet rijden — korter dan L, dat is lengtecontractie." />
+        <Getal label="Desync-offset (v·L)" waarde={desyncOffset.toFixed(2)}
+          uitleg="Hoeveel de achter- en voorklok van de trein, gezien vanaf het perron, structureel uit elkaar lopen — op elk perron-moment hetzelfde bedrag." />
+      </div>
+
+      <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginBottom: 12 }}>
+        <tbody>
+          <tr>
+            <td style={{ padding: "4px 8px", borderBottom: "1px solid #eee" }}>
+              Perron: licht raakt achter / voor (platform-tijd t)
+              <InfoKnop uitleg="Het coördinatentijdstip in het perron-kader waarop het licht de achter- resp. voorkant van de (gecontraheerde) trein raakt." />
+            </td>
+            <td style={{ padding: "4px 8px", borderBottom: "1px solid #eee" }}>
+              t = {platform.tAchter.toFixed(2)} / {platform.tVoor.toFixed(2)} &nbsp;(Δt = {dtPlatform.toFixed(2)})
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "4px 8px", borderBottom: "1px solid #eee" }}>
+              Diezelfde gebeurtenissen, terugvertaald naar treinklok (τ)
+              <InfoKnop uitleg="Wat de fysieke treinklokken zelf, op hun eigen wijzerplaat, op dat moment aangeven — berekend door de perron-waarnemer via de Lorentz-transformatie." />
+            </td>
+            <td style={{ padding: "4px 8px", borderBottom: "1px solid #eee" }}>
+              τ = {(platform.tAchter / gamma + (vFrac * L) / 2).toFixed(2)} / {(platform.tVoor / gamma - (vFrac * L) / 2).toFixed(2)} &nbsp;(kloppen beide → L/2 = {(L/2).toFixed(2)})
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "4px 8px" }}>
+              Trein-eigen kader: licht raakt achter / voor
+              <InfoKnop uitleg="De eigen tijd (proper time) van de gebeurtenis: wat de treinpassagiers zelf aflezen. Voor beide wanden identiek — dat IS gelijktijdigheid, in hun eigen kader." />
+            </td>
+            <td style={{ padding: "4px 8px" }}>t′ = {(L/2).toFixed(2)} / {(L/2).toFixed(2)} &nbsp;(Δt′ = 0, gelijktijdig)</td>
+          </tr>
+          <tr>
+            <td style={{ padding: "4px 8px", borderTop: "1px solid #eee" }}>
+              Δt in echte seconden (bij huidige schaal)
+              <InfoKnop uitleg="Hetzelfde Δt als hierboven, maar omgerekend naar echte seconden met de schaal die je bij de tijdslider hebt ingesteld (standaard: 1 eenheid = 1 lichtseconde)." />
+            </td>
+            <td style={{ padding: "4px 8px", borderTop: "1px solid #eee", fontWeight: 600, color: "#8e44ad" }}>
+              {(dtPlatform * secondenPerEenheid).toExponential(3)} s
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <SymbolenUitleg
+        gamma={gamma} L={L} Lc={Lc} vFrac={vFrac} t={t} tTrein={tTrein}
+        platform={platform} dtPlatform={dtPlatform}
+      />
+
+      <TijdUitleg
+        gamma={gamma} L={L} Lc={Lc} vFrac={vFrac} t={t}
+        platform={platform} tHitTrein={tHitTrein}
+        dtPlatform={dtPlatform} desyncOffset={desyncOffset}
+      />
+
+      <div style={{ background: "#eef5ff", border: "1px solid #cfe0f5", borderRadius: 8, padding: "12px 14px", fontSize: 12.5, lineHeight: 1.6, color: "#1a3a5c" }}>
+        <b>Waarom dit klopt — de drie effecten hangen samen:</b>
+        <ol style={{ margin: "6px 0 0 18px", padding: 0 }}>
+          <li><b>Lengtecontractie</b> zorgt dat de trein, gezien vanaf het perron, korter is
+            ({Lc.toFixed(2)} i.p.v. {L.toFixed(2)}) — dus het licht heeft minder afstand te
+            overbruggen dan je zonder deze correctie zou denken.</li>
+          <li><b>Tijdsdilatatie</b> zorgt dat de treinklokken zelf trager tikken dan de
+            perronklok (factor 1/γ = {(1/gamma).toFixed(3)}).</li>
+          <li><b>Relativiteit van gelijktijdigheid</b> zorgt voor een vast offset (v·L =
+            {desyncOffset.toFixed(2)}) tussen de achter- en voorklok, op elk perron-moment.</li>
+        </ol>
+        <p style={{ margin: "8px 0 0 0" }}>
+          Tel je deze drie precies op de juiste manier bij elkaar op (dat is wat de
+          Lorentz-transformatie doet), dan komt er iets moois uit: beide klokken lezen,
+          op het moment dat het licht ze raakt, exact hetzelfde af — L/2 — precies zoals
+          de trein-passagiers het zelf ook zien in hun eigen kader. Geen tegenspraak,
+          twee volledig consistente beschrijvingen van dezelfde werkelijkheid.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SymbolenUitleg({ gamma, L, Lc, vFrac, t, tTrein, platform, dtPlatform }) {
+  const [open, setOpen] = useState(false);
+
+  const symbolen = [
+    { teken: "x", naam: "Positie (ruimte-coördinaat)", waarde: null,
+      uitleg: "Plek op de horizontale as — hoe ver iets zich links of rechts van het middelpunt bevindt, in dezelfde eenheden als de lengte L." },
+    { teken: "t", naam: "Coördinatentijd (perron)", waarde: t.toFixed(3),
+      uitleg: "Tijd volgens het klokkennetwerk dat overal op het perron stilstaat en onderling synchroon is gezet. Dit is de tijd die de tijdslider aanstuurt." },
+    { teken: "t′  (t-accent)", naam: "Coördinatentijd (trein-kader)", waarde: tTrein.toFixed(3),
+      uitleg: "Hetzelfde soort tijd als t, maar dan volgens een klokkennetwerk dat stilstaat ten opzichte van de trein zelf (dus mee-beweegt met het perron gezien)." },
+    { teken: "τ  (tau)", naam: "Eigen tijd (proper time)", waarde: `${platform.tauAchter.toFixed(2)} / ${platform.tauVoor.toFixed(2)}`,
+      uitleg: "Wat één specifieke, fysieke klok zelf op zijn wijzerplaat aangeeft. In tegenstelling tot coördinatentijd (t of t′) is dit geen afspraak over een heel netwerk, maar het directe aflezen van één klok — een kader-onafhankelijk feit." },
+    { teken: "γ  (gamma)", naam: "Lorentzfactor", waarde: gamma.toFixed(4),
+      uitleg: "γ = 1/√(1−v²/c²). Altijd ≥1. Hoe groter v, hoe groter γ, hoe sterker alle drie de relativistische effecten." },
+    { teken: "v", naam: "Snelheid van de trein", waarde: `${vFrac.toFixed(2)}·c`,
+      uitleg: "De snelheid van de trein ten opzichte van het perron, uitgedrukt als fractie van de lichtsnelheid c." },
+    { teken: "c", naam: "Lichtsnelheid", waarde: "1 (genormaliseerd)",
+      uitleg: "In deze tool is c=1 gesteld, zodat 1 tijdseenheid gelijk is aan de tijd die licht nodig heeft om 1 ruimte-eenheid af te leggen. Dat houdt de formules overzichtelijk — reken je terug naar echte seconden, dan vind je c weer terug als 299.792.458 m/s (zie de schaal-instelling bij de tijdslider)." },
+    { teken: "L", naam: "Eigen lengte (rustlengte)", waarde: L.toFixed(2),
+      uitleg: "De lengte van de trein zoals gemeten dóór de trein zelf, terwijl hij voor die meter stilstaat. Dit is de lengte die je instelt met de lengte-slider." },
+    { teken: "L/γ  (of Lc)", naam: "Gecontraheerde lengte", waarde: Lc.toFixed(2),
+      uitleg: "Hoe lang de trein lijkt vanaf het perron: altijd korter dan of gelijk aan L. Dit is lengtecontractie." },
+    { teken: "Δt  (delta-t)", naam: "Tijdsverschil tussen twee gebeurtenissen", waarde: dtPlatform.toFixed(3),
+      uitleg: "De Griekse hoofdletter Δ betekent 'verschil'. Δt is dus t_voor min t_achter — hoeveel coördinatentijd er in hetzelfde kader tussen twee gebeurtenissen zit." },
+    { teken: "x′, ct′", naam: "Trein-assen (Minkowski-diagram)", waarde: null,
+      uitleg: "De gouden, gekantelde assen in het derde paneel: x′ is de ruimte-as van het trein-kader, ct′ de tijd-as. Ze zijn gekanteld doordat de trein beweegt t.o.v. het perron." },
+    { teken: "ct", naam: "Verticale as (Minkowski-diagram)", waarde: null,
+      uitleg: "Tijd vermenigvuldigd met c, zodat de tijd-as in dezelfde eenheden (afstand) wordt uitgedrukt als de ruimte-as x — daardoor beweegt licht altijd precies onder 45°." },
+  ];
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%", textAlign: "left", background: "#f5f7fa", border: "1px solid #e0e4ea",
+          borderRadius: 8, padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1a3a5c",
+          cursor: "pointer"
+        }}
+      >
+        {open ? "▾" : "▸"} Wat betekenen alle tekens? (x, t, τ, γ, Δt, ...)
+      </button>
+
+      {open && (
+        <div style={{ border: "1px solid #e0e4ea", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "10px 14px" }}>
+          {symbolen.map((s, i) => (
+            <div key={i} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: i < symbolen.length - 1 ? "1px solid #eee" : "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "#1a3a5c" }}>{s.teken}</span>
+                {s.waarde && <span style={{ fontSize: 12, fontWeight: 700, color: "#8e44ad" }}>{s.waarde}</span>}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#555", fontStyle: "italic", marginBottom: 3 }}>{s.naam}</div>
+              <div style={{ fontSize: 11.5, color: "#444", lineHeight: 1.4 }}>{s.uitleg}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SleepCirkel({ vFrac, setVFrac, L, setT }) {
+  const [open, setOpen] = useState(false);
+  const svgRef = useRef(null);
+  const dragging = useRef(false);
+
+  const factor = Math.sqrt(1 - vFrac * vFrac); // = 1/gamma
+  const gamma = 1 / factor;
+  const Lc = L * factor;
+
+  const svgW = 300, svgH = 300;
+  const marge = 38;
+  const straal = svgW - 2 * marge;
+  const ox = marge, oy = svgH - marge;
+  const toX = (x) => ox + x * straal;
+  const toY = (y) => oy - y * straal;
+  const puntX = toX(vFrac), puntY = toY(factor);
+
+  const bijwerken = (clientX, clientY) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const schaal = svgW / rect.width;
+    const localX = (clientX - rect.left) * schaal;
+    const localY = (clientY - rect.top) * schaal;
+    let hoek = Math.atan2(oy - localY, localX - ox);
+    hoek = Math.max(0.03, Math.min(Math.PI / 2 - 0.03, hoek));
+    setVFrac(Math.max(0.03, Math.min(0.97, Math.cos(hoek))));
+    setT(0);
+  };
+  const onDown = (e) => { dragging.current = true; const p = e.touches ? e.touches[0] : e; bijwerken(p.clientX, p.clientY); };
+  const onMove = (e) => { if (!dragging.current) return; e.preventDefault && e.preventDefault(); const p = e.touches ? e.touches[0] : e; bijwerken(p.clientX, p.clientY); };
+  const onUp = () => { dragging.current = false; };
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    el.addEventListener("touchstart", onDown, { passive: false });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onUp, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", onDown);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onUp);
+    };
+  }, [open]);
+
+  const boogPts = [];
+  for (let a = 0; a <= Math.PI / 2; a += 0.03) boogPts.push([Math.cos(a), Math.sin(a)]);
+  const boogPad = boogPts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${toX(x)} ${toY(y)}`).join(" ");
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%", textAlign: "left", background: "#f5f7fa", border: "1px solid #e0e4ea",
+          borderRadius: 8, padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1a3a5c",
+          cursor: "pointer"
+        }}
+      >
+        {open ? "▾" : "▸"} Sleep het punt: v en lengtecontractie in één figuur
+      </button>
+
+      {open && (
+        <div style={{ border: "1px solid #e0e4ea", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "12px 14px" }}>
+          <p style={{ fontSize: 12, color: "#444", marginBottom: 10, lineHeight: 1.5 }}>
+            De schuine zijde is vast op 1 (c). Sleep het punt over de boog —
+            dit stuurt dezelfde v aan als de snelheidsslider hierboven.
+          </p>
+
+          <svg
+            ref={svgRef}
+            width="100%" viewBox={`0 0 ${svgW} ${svgH}`}
+            style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8, touchAction: "none", cursor: "grab" }}
+            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+          >
+            <line x1={ox} y1={oy} x2={toX(1.05)} y2={oy} stroke="#ccc" strokeWidth={1} />
+            <line x1={ox} y1={oy} x2={ox} y2={toY(1.05)} stroke="#ccc" strokeWidth={1} />
+            <path d={boogPad} fill="none" stroke="#ccc" strokeWidth={1} strokeDasharray="3 3" />
+
+            <line x1={ox} y1={oy} x2={puntX} y2={puntY} stroke="#e05555" strokeWidth={2.5} />
+            <text x={(ox + puntX) / 2} y={oy + 18} fontSize={11} textAnchor="middle" fill="#e05555" fontWeight={600}>c = 1</text>
+
+            <line x1={ox} y1={oy} x2={puntX} y2={oy} stroke="#b8860b" strokeWidth={2.5} />
+            <text x={(ox + puntX) / 2} y={oy + 33} fontSize={11} textAnchor="middle" fill="#b8860b" fontWeight={600}>v = {vFrac.toFixed(2)}</text>
+
+            <line x1={puntX} y1={oy} x2={puntX} y2={puntY} stroke="#2a9d5c" strokeWidth={2.5} />
+            <text x={puntX + 8} y={(oy + puntY) / 2} fontSize={11} fill="#2a9d5c" fontWeight={600}>1/γ = {factor.toFixed(3)}</text>
+
+            <circle cx={puntX} cy={puntY} r={8} fill="#fff" stroke="#333" strokeWidth={2} />
+          </svg>
+
+          <div style={{ background: "#eef5ff", border: "1px solid #cfe0f5", borderRadius: 8, padding: "10px 12px", marginTop: 10, fontSize: 12.5, lineHeight: 1.7, color: "#1a3a5c" }}>
+            <div>v = <b>{vFrac.toFixed(3)}</b>·c</div>
+            <div>√(1−v²) = √(1−{(vFrac*vFrac).toFixed(3)}) = <b style={{ color: "#2a9d5c" }}>{factor.toFixed(4)}</b></div>
+            <div>γ = 1/{factor.toFixed(3)} = <b>{gamma.toFixed(4)}</b></div>
+          </div>
+
+          <div style={{ background: "#f5f7fa", border: "1px solid #e0e4ea", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1a3a5c", marginBottom: 6 }}>
+              De oorspronkelijke formule uit het boek, nu met jouw L={L.toFixed(1)}
+            </div>
+            <div style={{ fontSize: 12.5, fontFamily: "monospace", color: "#333", marginBottom: 6 }}>
+              L_gecontraheerd = L₀ · √(1 − v²/c²)
+            </div>
+            <div style={{ fontSize: 12, fontFamily: "monospace", color: "#1a3a5c", lineHeight: 1.6 }}>
+              = {L.toFixed(1)} · √(1 − {(vFrac*vFrac).toFixed(3)}) = {L.toFixed(1)} · {factor.toFixed(3)} = <b style={{ color: "#2a9d5c" }}>{Lc.toFixed(4)}</b>
+            </div>
+            <div style={{ fontSize: 10.5, color: "#777", marginTop: 6, lineHeight: 1.4 }}>
+              Dezelfde formule als x′=(x−vt)/√(1−v²/c²) uit de boekfoto —
+              hier de lengte-versie, en de uitkomst is precies de Lc die je
+              boven in "PERRON-KADER" ziet staan.
+            </div>
+          </div>
+
+          <div style={{ height: 18, background: "#e0e4ea", borderRadius: 4, marginTop: 10 }}>
+            <div style={{
+              width: `${factor * 100}%`, height: "100%", background: "#2a9d5c",
+              borderRadius: 4, transition: "width 0.05s linear"
+            }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreinNatiefDiagram({ L, vFrac, gamma, t, tMax, mkZoom, mkW, mkH, platform }) {
+  // Trein-natieve coördinaten (X,CT): de trein staat hier stil, het
+  // perron beweegt met -v. Schaal gebaseerd op tMax (dezelfde grens als
+  // het perron-diagram gebruikt), zodat het bewegende rode punt over de
+  // HELE tijdslider-range binnen beeld blijft -- niet alleen op de vaste
+  // gebeurtenissen (∓L/2, L/2). mkZoom werkt hier hetzelfde als in het
+  // perron-diagram: groter getal = verder ingezoomd.
+  const CTmax = (Math.max(gamma * tMax, L / 2) * 1.1) / mkZoom;
+  const Xmax = (Math.max(gamma * vFrac * tMax, L / 2) * 1.1) / mkZoom;
+  const margin = 20;
+  const toX = (X) => margin + ((X - -Xmax) / (2 * Xmax)) * (mkW - 2 * margin);
+  const toY = (CT) => (mkH - margin) - (CT / CTmax) * (mkH - 2 * margin);
+
+  // Huidige treinklok-tijd (CT=tTrein=t) -- horizontale nu-lijn (zwart/trein)
+  const tTrein = t;
+  // Huidig perron-moment: welke CT hoort bij perron-simultaan-lijn t=t?
+  // Perron-simultaniteit (t=const) is in trein-coords: CT = t/γ - v·X
+  const perronNuOffset = t / gamma;
+
+  // Positie van "het perron-punt x=0" op de ct'-as: (X,CT)=(-γvt, γt)
+  const perronPuntX = -gamma * vFrac * t;
+  const perronPuntCT = gamma * t;
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${mkW} ${mkH}`} style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8, display: "block" }}>
+      {/* lichtkegel -- zelfde vorm, want c is invariant in elk kader */}
+      <line x1={toX(-Xmax)} y1={toY(Xmax)} x2={toX(0)} y2={toY(0)} stroke="#ccc" strokeDasharray="4 3" />
+      <line x1={toX(Xmax)} y1={toY(Xmax)} x2={toX(0)} y2={toY(0)} stroke="#ccc" strokeDasharray="4 3" />
+
+      {/* trein-assen: RECHT (dit kader is nu de orthogonale basis) */}
+      <line x1={toX(-Xmax)} y1={toY(0)} x2={toX(Xmax)} y2={toY(0)} stroke="#333" strokeWidth={1.2} />
+      <line x1={toX(0)} y1={toY(0)} x2={toX(0)} y2={toY(CTmax)} stroke="#333" strokeWidth={1.2} />
+      <text x={toX(Xmax) - 4} y={toY(0) - 6} fontSize={17.5} textAnchor="end" fill="#333">x′</text>
+      <text x={toX(0) + 6} y={toY(CTmax) + 10} fontSize={17.5} fill="#333">ct′</text>
+
+      {/* perron-assen: GEKANTELD met -v (spiegelbeeld van de vorige weergave) */}
+      <line x1={toX(0)} y1={toY(0)} x2={toX(perronPuntX)} y2={toY(perronPuntCT)} stroke="#b8860b" strokeWidth={1.2} />
+      <line x1={toX(-Xmax)} y1={toY(vFrac * Xmax)} x2={toX(Xmax)} y2={toY(-vFrac * Xmax)} stroke="#b8860b" strokeWidth={1} strokeDasharray="2 2" />
+      <text x={toX(perronPuntX) - 6} y={toY(perronPuntCT)} fontSize={17.5} textAnchor="end" fill="#b8860b">ct</text>
+
+      {/* wereldlijnen achter/voor -- nu simpelweg VERTICAAL, want de trein
+          staat in dit kader stil */}
+      <line x1={toX(-L / 2)} y1={toY(0)} x2={toX(-L / 2)} y2={toY(CTmax)} stroke="steelblue" strokeWidth={1.5} />
+      <line x1={toX(L / 2)} y1={toY(0)} x2={toX(L / 2)} y2={toY(CTmax)} stroke="steelblue" strokeWidth={1.5} />
+
+      {/* zichtbare lengte-aanduiding: dubbele pijl tussen de wereldlijnen, iets
+          onder de x'-as, met het label L=... */}
+      <g>
+        <line x1={toX(-L / 2)} y1={toY(0) + 22} x2={toX(L / 2)} y2={toY(0) + 22} stroke="steelblue" strokeWidth={1} />
+        <line x1={toX(-L / 2)} y1={toY(0) + 17} x2={toX(-L / 2)} y2={toY(0) + 27} stroke="steelblue" strokeWidth={1} />
+        <line x1={toX(L / 2)} y1={toY(0) + 17} x2={toX(L / 2)} y2={toY(0) + 27} stroke="steelblue" strokeWidth={1} />
+        <text x={toX(0)} y={toY(0) + 38} fontSize={16} textAnchor="middle" fill="steelblue" fontWeight={600}>
+          L={L.toFixed(2)}
+        </text>
+      </g>
+
+      {/* de twee gebeurtenissen: hier triviaal gelijktijdig op CT=L/2 */}
+      <circle cx={toX(-L / 2)} cy={toY(L / 2)} r={5} fill={tTrein >= L / 2 ? "#22a55a" : "#999"} />
+      <text x={toX(-L / 2) - 6} y={toY(L / 2) - 8} fontSize={14.5} textAnchor="end" fill="#555">
+        t′=achter={(L / 2).toFixed(2)}
+      </text>
+      <circle cx={toX(L / 2)} cy={toY(L / 2)} r={5} fill={tTrein >= L / 2 ? "#22a55a" : "#999"} />
+      <text x={toX(L / 2) + 6} y={toY(L / 2) - 8} fontSize={14.5} fill="#555">
+        t′=voor={(L / 2).toFixed(2)}
+      </text>
+
+      {/* trein-nu-lijn: horizontaal, op hoogte tTrein (het is hier het RECHTE kader) */}
+      <line x1={toX(-Xmax)} y1={toY(tTrein)} x2={toX(Xmax)} y2={toY(tTrein)} stroke="#2a9d5c" strokeWidth={1} strokeDasharray="3 3" />
+      {/* perron-nu-lijn: gekanteld met -v, op hoogte die hoort bij platform-tijd t
+          (afgeleid: CT = -v·X + t/γ) */}
+      <line
+        x1={toX(-Xmax)} y1={toY(-vFrac * -Xmax + perronNuOffset)}
+        x2={toX(Xmax)} y2={toY(-vFrac * Xmax + perronNuOffset)}
+        stroke="#e05555" strokeWidth={1} strokeDasharray="3 3"
+      />
+
+      {/* huidige-positie stippen */}
+      <circle cx={toX(0)} cy={toY(tTrein)} r={4} fill="#2a9d5c" />
+      <text x={toX(0) - 8} y={toY(tTrein) + 4} fontSize={14.5} textAnchor="end" fill="#2a9d5c" fontWeight={600}>
+        t′={tTrein.toFixed(2)}
+      </text>
+      <circle cx={toX(perronPuntX)} cy={toY(perronPuntCT)} r={4} fill="#e05555" />
+      <text x={toX(perronPuntX) + 8} y={toY(perronPuntCT) + 4} fontSize={14.5} fill="#e05555" fontWeight={600}>
+        t={t.toFixed(2)}
+      </text>
+    </svg>
+  );
+}
+
+function InfoGroup({ items }) {
+  const [open, setOpen] = useState([]); // indices die open staan (max 2)
+  const [waaromOpen, setWaaromOpen] = useState([]); // indices waar de diepere uitleg getoond wordt
+
+  const toggle = (i) => {
+    setOpen((prev) => {
+      if (prev.includes(i)) return prev.filter((x) => x !== i);
+      if (prev.length >= 2) return [prev[1], i]; // oudste eruit, nieuwe erbij
+      return [...prev, i];
+    });
+  };
+
+  const toggleWaarom = (i) => {
+    setWaaromOpen((prev) => prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]);
+  };
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: open.length ? 8 : 0 }}>
+        {items.map((it, i) => (
+          <button
+            key={i}
+            onClick={() => toggle(i)}
+            style={{
+              display: "flex", alignItems: "center", gap: 5, fontSize: 11,
+              color: open.includes(i) ? "#fff" : "#8e44ad",
+              background: open.includes(i) ? "#8e44ad" : "none",
+              border: "1px solid #d9c2e0", borderRadius: 5, padding: "4px 8px",
+              cursor: "pointer"
+            }}
+          >
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 14, height: 14, borderRadius: "50%",
+              background: open.includes(i) ? "#fff" : "#8e44ad",
+              color: open.includes(i) ? "#8e44ad" : "#fff",
+              fontSize: 9, fontWeight: 700, flexShrink: 0
+            }}>i</span>
+            {it.titel}
+          </button>
+        ))}
+      </div>
+      {open.length > 0 && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {open.map((i) => (
+            <div key={i} style={{
+              flex: "1 1 0", minWidth: 160, background: "#fff", border: "1px solid #d0d0d0",
+              borderRadius: 6, padding: "8px 10px", fontSize: 11, color: "#333", lineHeight: 1.4,
+              position: "relative"
+            }}>
+              <button
+                onClick={() => toggle(i)}
+                style={{
+                  position: "absolute", top: 2, right: 4, background: "none", border: "none",
+                  fontSize: 15, color: "#999", cursor: "pointer", padding: 4, lineHeight: 1
+                }}
+              >×</button>
+              {items[i].waarom ? (
+                <button
+                  onClick={() => toggleWaarom(i)}
+                  style={{
+                    display: "block", textAlign: "left", width: "100%", background: "none",
+                    border: "none", cursor: "pointer", padding: 0, marginBottom: 3, paddingRight: 16
+                  }}
+                >
+                  <span style={{
+                    fontWeight: 700, color: "#1a3a5c",
+                    borderBottom: "1px dotted #8e44ad"
+                  }}>
+                    {items[i].formule}
+                  </span>
+                  <span style={{ fontSize: 9, color: "#8e44ad", marginLeft: 4 }}>
+                    {waaromOpen.includes(i) ? "▾ waarom?" : "▸ waarom?"}
+                  </span>
+                </button>
+              ) : (
+                <div style={{ fontWeight: 700, marginBottom: 3, paddingRight: 16 }}>{items[i].formule}</div>
+              )}
+              <div>{items[i].som}</div>
+              {waaromOpen.includes(i) && items[i].waarom && (
+                <div style={{
+                  marginTop: 6, paddingTop: 6, borderTop: "1px dashed #ddd",
+                  color: "#555", fontSize: 10.5, lineHeight: 1.5
+                }}>
+                  {items[i].waarom}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoRij({ titel, formule, som }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#8e44ad",
+          background: "none", border: "1px solid #d9c2e0", borderRadius: 5, padding: "4px 8px",
+          cursor: "pointer", width: "100%", textAlign: "left"
+        }}
+      >
+        <span style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 14, height: 14, borderRadius: "50%", background: "#8e44ad", color: "#fff",
+          fontSize: 9, fontWeight: 700, flexShrink: 0
+        }}>i</span>
+        {titel}
+      </button>
+      {open && (
+        <div style={{
+          marginTop: 4, background: "#fff", border: "1px solid #d0d0d0", borderRadius: 6,
+          padding: "8px 10px", fontSize: 11, color: "#333", lineHeight: 1.4
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 3 }}>{formule}</div>
+          <div>{som}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoKnop({ uitleg }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        aria-label="Meer uitleg"
+        style={{
+          width: 16, height: 16, borderRadius: "50%", border: "1px solid #8e44ad",
+          background: open ? "#8e44ad" : "#fff", color: open ? "#fff" : "#8e44ad",
+          fontSize: 10, lineHeight: "14px", padding: 0, cursor: "pointer", fontWeight: 700
+        }}
+      >i</button>
+      {open && (
+        <div style={{
+          position: "absolute", zIndex: 10, top: 20, left: 0, width: 220,
+          background: "#fff", border: "1px solid #d0d0d0", borderRadius: 6,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)", padding: "8px 10px",
+          fontSize: 11, color: "#333", lineHeight: 1.4, fontWeight: 400
+        }}>
+          {uitleg}
+        </div>
+      )}
+    </span>
+  );
+}
+
+function Getal({ label, waarde, uitleg }) {
+  return (
+    <div style={{ background: "#f5f7fa", border: "1px solid #e0e4ea", borderRadius: 6, padding: "8px 10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+        <div style={{ fontSize: 10.5, color: "#777" }}>{label}</div>
+        {uitleg && <InfoKnop uitleg={uitleg} />}
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "#1a3a5c" }}>{waarde}</div>
+    </div>
+  );
+}
+
+function TijdUitleg({ gamma, L, Lc, vFrac, t, platform, tHitTrein, dtPlatform, desyncOffset }) {
+  const [open, setOpen] = useState(false);
+
+  const rijen = [
+    {
+      symbool: "t",
+      naam: "Perron-coördinatentijd",
+      waarde: t.toFixed(3),
+      betekenis: "De tijd volgens een heel netwerk van klokken die overal op het perron stilstaan en onderling synchroon zijn gezet. Geen enkele klok meet dit alleen — het is een afgesproken 'label' dat aan elke gebeurtenis in het perron-kader wordt gehangen.",
+      nut: "Bepaalt volgorde en gelijktijdigheid zoals niet-bewegende waarnemers die zien.",
+    },
+    {
+      symbool: "τ_achter(t), τ_voor(t)",
+      naam: "Voorspelde klokstand van de bewegende treinklokken",
+      waarde: `${platform.tauAchter.toFixed(3)} / ${platform.tauVoor.toFixed(3)}`,
+      betekenis: "Wat de fysieke klok achter- resp. voorin de trein ECHT op zijn wijzerplaat laat zien, berekend door de perron-waarnemer via de Lorentz-transformatie. Dit zijn dus voorspellingen vanaf het perron over andermans klok, niet de perron-klok zelf.",
+      nut: "Laat in één oogopslag twee effecten tegelijk zien: de treinklokken lopen trager (tijdsdilatatie) én ze lopen onderling niet gelijk (relativiteit van gelijktijdigheid).",
+    },
+    {
+      symbool: "t_achter, t_voor",
+      naam: "Perron-tijdstip van de lichtgebeurtenissen",
+      waarde: `${platform.tAchter.toFixed(3)} / ${platform.tVoor.toFixed(3)}`,
+      betekenis: "Het coördinatentijdstip (in het perron-kader) waarop het licht de achter- resp. voorkant van de (gecontraheerde) trein raakt.",
+      nut: "Het verschil hiertussen is precies wat relativiteit van gelijktijdigheid zichtbaar maakt.",
+    },
+    {
+      symbool: "Δt = t_voor − t_achter",
+      naam: "Gelijktijdigheids-kloof",
+      waarde: dtPlatform.toFixed(3),
+      betekenis: "Hoeveel perron-tijd er zit tussen de twee lichtgebeurtenissen. Volgt uit de formule Δt = γ·v·L/c².",
+      nut: "Kwantificeert hoe 'niet-gelijktijdig' de twee gebeurtenissen zijn, gezien vanaf het perron.",
+    },
+    {
+      symbool: "t′ = L/2",
+      naam: "Trein-eigen tijd van de lichtgebeurtenissen",
+      waarde: (L / 2).toFixed(3),
+      betekenis: "De tijd die de treinpassagiers zelf, op hun eigen (onderling gesynchroniseerde) klokken aflezen op het moment dat het licht een van de wanden raakt. Voor beide wanden exact hetzelfde getal.",
+      nut: "Dit is de 'eigen tijd' (proper time) van die gebeurtenis — een frame-onafhankelijk feit, in tegenstelling tot coördinatentijd.",
+    },
+    {
+      symbool: "γ (Lorentzfactor)",
+      naam: "Omrekenfactor tussen de kaders",
+      waarde: gamma.toFixed(4),
+      betekenis: `γ = 1/√(1−v²/c²). Bij v=${vFrac.toFixed(2)}c is γ=${gamma.toFixed(3)}.`,
+      nut: "De sleutelfactor achter alle drie de effecten: hij bepaalt hoeveel de trein korter lijkt, hoeveel trager de klokken tikken, en hoe groot het gelijktijdigheids-offset is.",
+    },
+    {
+      symbool: "1/γ",
+      naam: "Tijdsdilatatie-factor",
+      waarde: (1 / gamma).toFixed(4),
+      betekenis: "Hoeveel trager een bewegende klok tikt, per seconde coördinatentijd. Bij γ=1,25 tikt de treinklok dus maar 0,8 seconde per seconde perron-tijd.",
+      nut: "Directe maat voor hoeveel 'tijd de bewegende klok verliest' t.o.v. het perron.",
+    },
+    {
+      symbool: "v·L (desync-offset)",
+      naam: "Vast klokverschil tussen achter en voor",
+      waarde: desyncOffset.toFixed(3),
+      betekenis: "Op ELK perron-moment loopt de achterklok van de trein v·L vóór op de voorklok — een vast, constant verschil, niet afhankelijk van t.",
+      nut: "Dit IS relativiteit van gelijktijdigheid in getalvorm: klokken die in de trein zelf synchroon lopen, lopen dat vanaf het perron gezien niet.",
+    },
+  ];
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%", textAlign: "left", background: "#f5f7fa", border: "1px solid #e0e4ea",
+          borderRadius: 8, padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1a3a5c",
+          cursor: "pointer"
+        }}
+      >
+        {open ? "▾" : "▸"} Alle tijden op een rij — wat betekenen ze en waar heb je ze voor?
+      </button>
+
+      {open && (
+        <div style={{ border: "1px solid #e0e4ea", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "10px 14px" }}>
+          <p style={{ fontSize: 12, color: "#444", lineHeight: 1.5, marginBottom: 10 }}>
+            Er zijn in dit diagram eigenlijk maar twee soorten tijd: <b>coördinatentijd</b>
+            (een afspraak-label, gebaseerd op een heel netwerk synchrone klokken in één kader —
+            zoals t) en <b>eigen tijd</b> (proper time — wat één specifieke klok écht op zijn
+            wijzerplaat toont, zoals τ of t′). Coördinatentijd verschilt per kader; eigen tijd
+            van een gebeurtenis is een hard feit waar alle kaders het uiteindelijk over eens zijn
+            (al kost het ze een Lorentz-transformatie om elkaars uitkomst te reproduceren).
+          </p>
+          {rijen.map((r, i) => (
+            <div key={i} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: i < rijen.length - 1 ? "1px solid #eee" : "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "#1a3a5c" }}>{r.symbool}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#8e44ad" }}>{r.waarde}</span>
+              </div>
+              <div style={{ fontSize: 11.5, color: "#555", fontStyle: "italic", marginBottom: 3 }}>{r.naam}</div>
+              <div style={{ fontSize: 11.5, color: "#444", lineHeight: 1.4, marginBottom: 3 }}>{r.betekenis}</div>
+              <div style={{ fontSize: 11, color: "#1a7a4c", lineHeight: 1.4 }}>
+                <b>Waarvoor:</b> {r.nut}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<GelijktijdigheidVolledig />);
+</script>
+</body>
+</html>
