@@ -4,6 +4,8 @@ import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
 import re
 import math
+import pathlib
+
 
 
 # ==========================
@@ -175,6 +177,36 @@ def apply_style(ax, fig=None):
     ax.yaxis.label.set_color(TEXT)
     ax.title.set_color(TEXT)
     ax.grid(True, alpha=0.15, color=GRID, linestyle="-", linewidth=0.6)
+
+# ==========================
+# React/JSX-modules (via CDN Babel, embed in Streamlit)
+# ==========================
+
+def render_gelijktijdigheid_volledig():
+    st.subheader("🌀 Minkowski-diagram Pro")
+    st.info(
+        "Uitgebreide versie: perron/trein omkeerbaar, ijk-hyperbolen, "
+        "pinch-to-zoom, en klikbare formules met stap-voor-stap afleidingen."
+    )
+    html_pad = pathlib.Path(__file__).parent / "react_html" / "gelijktijdigheid_volledig.html"
+    if not html_pad.exists():
+        st.error("react_html/gelijktijdigheid_volledig.html niet gevonden in de repo.")
+        return
+    components.html(html_pad.read_text(encoding="utf-8"), height=2400, scrolling=True)
+
+
+def render_lichtklok_driehoek():
+    st.subheader("🔺 Lichtklok-afleiding")
+    st.info(
+        "Waar komen Δt=γΔτ en L=L₀/γ precies vandaan? Stap voor stap, "
+        "met Pythagoras, de boek-rulers, en de ijk-hyperbolen."
+    )
+    html_pad = pathlib.Path(__file__).parent / "react_html" / "lichtklok_driehoek.html"
+    if not html_pad.exists():
+        st.error("react_html/lichtklok_driehoek.html niet gevonden in de repo.")
+        return
+    components.html(html_pad.read_text(encoding="utf-8"), height=2600, scrolling=True)
+
 
 
 # ==========================
@@ -750,8 +782,10 @@ LEERPAD = [
     "📐 Minkowski-diagram",
     "💥 Lichtkegel",
     "🚂 Gelijktijdigheid",
+    "🌀 Minkowski-diagram Pro",
     "🕐 Kloksynchronisatie",
     "💡 Lichtklok",
+    "🔺 Lichtklok-afleiding",
     "🔵 Epstein-cirkel",
     "🏛 Galileï vs Einstein",
     "🔷 Spacetime-volume",
@@ -840,9 +874,11 @@ ALLE_MODULES = [
         ("⚡ E=mc²", "Hoeveel energie zit er eigenlijk verborgen in massa?"),
         ("⚽ Sport-scenarios", "Buitenspel, tunnels en rennende dieren als relativiteit-puzzels"),
     ]),
-    ("🔬 Verdieping", [
+        ("🔬 Verdieping", [
         ("🔄 Lorentz-transformaties", "Reken zelf coördinaten om tussen referentiekaders"),
         ("💫 Relativistisch impuls", "Impuls en energie bij hoge snelheid, en fotonen zonder massa"),
+        ("🌀 Minkowski-diagram Pro", "Perron/trein omkeerbaar, ijk-hyperbolen, zoom, en klikbare formule-afleidingen"),
+        ("🔺 Lichtklok-afleiding", "Van Pythagoras naar de volledige Lorentz-formules, stap voor stap"),
     ]),
     ("🕳 Richting Algemene Relativiteit", [
         ("🕳 Zwarte gaten", "De grens waarachter zelfs licht niet meer kan ontsnappen — nu ook met wormgaten"),
@@ -2446,6 +2482,19 @@ geldt $\Delta t' \neq 0$ in het treinframe. In grootte: $|\Delta t'| = 2\gamma\b
 Dit is de **relativiteit van gelijktijdigheid**: events die ruimtelijk gescheiden zijn
 en gelijktijdig in één frame, zijn niet gelijktijdig in een ander frame.
                 """)
+
+    # ==============================
+    # TAB 9b – Minkowski-diagram Pro (React)
+    # ==============================
+    if active == "🌀 Minkowski-diagram Pro":
+        render_gelijktijdigheid_volledig()
+
+    # ==============================
+    # TAB 9c – Lichtklok-afleiding (React)
+    # ==============================
+    if active == "🔺 Lichtklok-afleiding":
+        render_lichtklok_driehoek()
+
 
     # ==============================
     # TAB 10 – Lorentz-transformaties
