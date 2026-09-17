@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { width: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+function StapRegel({ nr, uitleg, formule, laatste }) {
+  return (
+    <div style={{
+      display: "flex", gap: 10, alignItems: "flex-start",
+      paddingBottom: 8, marginBottom: 8,
+      borderBottom: laatste ? "none" : "1px solid #eee"
+    }}>
+      <div style={{
+        flexShrink: 0, width: 20, height: 20, borderRadius: "50%",
+        background: laatste ? "#8e44ad" : "#e0e4ea",
+        color: laatste ? "#fff" : "#555",
+        fontSize: 11, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center"
+      }}>
+        {nr}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 11.5, color: "#444", lineHeight: 1.4, marginBottom: 3 }}>
+          {uitleg}
+        </div>
+        <div style={{
+          fontSize: 12.5, fontWeight: 700, color: laatste ? "#8e44ad" : "#1a3a5c",
+          fontFamily: "monospace"
+        }}>
+          {formule}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LichtklokDriehoek() {
+  const [vFrac, setVFrac] = useState(0.6);
+  const C = 1;
+  const gamma = 1 / Math.sqrt(1 - vFrac * vFrac);
+  const wortel = Math.sqrt(1 - vFrac * vFrac); // = 1/gamma
+
+  // Vaste verticale afstand L (eigen lengte van de klok / afstand tussen spiegels)
+  const L = 100; // px, vast
+  const horizontaal = vFrac * L / wortel; // v*dt, met dt zodanig geschaald dat verticaal=L
+  // Diagonaal (hypotenusa) = c*dt
+  const diagonaal = Math.sqrt(L * L + horizontaal * horizontaal);
+
+  const svgW = 360;
+  const svgH = 260;
+  const baseX = 60;
+  const baseY = 220;
+
+  const topX = baseX + horizontaal;
+  const topY = baseY - L;
+
+  // hoek tussen diagonaal en verticaal (in graden), voor het hoekboogje
+  const hoekRad = Math.atan(horizontaal / L);
+  const hoekGraden = (hoekRad * 180) / Math.PI;
+
+  return (
+    <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 420, margin: "0 auto", padding: 16 }}>
+      <h2 style={{ fontSize: 18, marginBottom: 8 }}>De lichtklok-driehoek</h2>
+      <p style={{ fontSize: 13, color: "#444", marginBottom: 14, lineHeight: 1.5 }}>
+        Het licht kaatst van beneden naar boven terwijl de klok opzij schuift.
+        Drie zijden, één rechthoekige driehoek, en Pythagoras doet de rest.
+      </p>
+
+      <label style={{ display: "block", fontSize: 13, marginBottom: 14 }}>
+        Snelheid v: <b>{vFrac.toFixed(2)}c</b> (γ = {gamma.toFixed(3)})
+        <input type="range" min={0.05} max={0.95} step={0.05} value={vFrac}
+          onChange={(e) => setVFrac(parseFloat(e.target.value))}
+          style={{ width: "100%" }} />
+      </label>
+
+      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8 }}>
+        {/* verticale zijde: L (rustkader-afstand tussen spiegels) */}
+        <line x1={baseX} y1={baseY} x2={baseX} y2={topY} stroke="#2a9d5c" strokeWidth={2.5} />
+        <text x={baseX - 10} y={(baseY + topY) / 2} fontSize={13} fill="#2a9d5c" textAnchor="end" fontWeight={600}>
+          L
+        </text>
+
+        {/* horizontale zijde: v·Δt (hoeveel de klok opschuift) */}
+        <line x1={baseX} y1={baseY} x2={topX} y2={baseY} stroke="#b8860b" strokeWidth={2.5} strokeDasharray="5 3" />
+        <text x={(baseX + topX) / 2} y={baseY + 20} fontSize={13} fill="#b8860b" textAnchor="middle" fontWeight={600}>
+          v·Δt
+        </text>
+
+        {/* diagonaal: c·Δt (het pad van het licht, vanuit perron gezien) */}
+        <line x1={baseX} y1={baseY} x2={topX} y2={topY} stroke="#e05555" strokeWidth={2.5} />
+        <text
+          x={(baseX + topX) / 2 + 14} y={(baseY + topY) / 2 - 4}
+          fontSize={13} fill="#e05555" fontWeight={600}
+        >
+          c·Δt
+        </text>
+
+        {/* onderste spiegel (bron) en bovenste spiegel */}
+        <circle cx={baseX} cy={baseY} r={4} fill="#333" />
+        <circle cx={baseX} cy={topY} r={4} fill="#333" />
+        <text x={baseX} y={baseY + 36} fontSize={10} textAnchor="middle" fill="#333">onderste spiegel</text>
+        <text x={baseX} y={topY - 10} fontSize={10} textAnchor="middle" fill="#333">bovenste spiegel</text>
+        <circle cx={topX} cy={topY} r={4} fill="#333" />
+
+        {/* rechte hoek markering bij de basis */}
+        <path
+          d={`M ${baseX} ${baseY - 14} L ${baseX + 14} ${baseY - 14} L ${baseX + 14} ${baseY}`}
+          fill="none" stroke="#999" strokeWidth={1}
+        />
+
+        {/* hoekboogje bij de bovenste spiegel, tussen verticaal en diagonaal */}
+        <path
+          d={`M ${topX} ${topY + 24} A 24 24 0 0 0 ${topX - 24 * Math.sin(hoekRad)} ${topY + 24 * (1 - Math.cos(hoekRad))}`}
+          fill="none" stroke="#666" strokeWidth={1}
+        />
+        <text x={topX + 6} y={topY + 34} fontSize={10} fill="#666">
+          θ={hoekGraden.toFixed(1)}°
+        </text>
+      </svg>
+
+      <table style={{ width: "100%", fontSize: 12.5, borderCollapse: "collapse", marginTop: 12 }}>
+        <tbody>
+          <tr>
+            <td style={{ padding: "4px 6px", color: "#2a9d5c", fontWeight: 600 }}>L (verticaal)</td>
+            <td style={{ padding: "4px 6px" }}>afstand tussen de spiegels — loodrecht op de beweging, dus <b>ongewijzigd</b></td>
+          </tr>
+          <tr>
+            <td style={{ padding: "4px 6px", color: "#b8860b", fontWeight: 600 }}>v·Δt (horizontaal)</td>
+            <td style={{ padding: "4px 6px" }}>hoever de klok opschuift terwijl het licht onderweg is</td>
+          </tr>
+          <tr>
+            <td style={{ padding: "4px 6px", color: "#e05555", fontWeight: 600 }}>c·Δt (diagonaal)</td>
+            <td style={{ padding: "4px 6px" }}>het pad van het licht zelf — altijd met snelheid c, ook schuin</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ background: "#eef5ff", border: "1px solid #cfe0f5", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.6, color: "#1a3a5c", marginTop: 12 }}>
+        <b>Pythagoras op deze driehoek:</b><br />
+        (c·Δt)² = L² + (v·Δt)²<br /><br />
+        Los op naar Δt, en je krijgt exact de formule met √(1−v²/c²) eronder.
+        Hoe groter v, hoe schuiner de rode lijn (hoek θ neemt toe), hoe langer
+        de lichtweg — en dus hoe trager de klok lijkt te tikken vanuit het perron.
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a3a5c", marginBottom: 8 }}>
+          Stap voor stap naar de formule
+        </div>
+
+        <StapRegel
+          nr={1}
+          uitleg={<>Start met Pythagoras op de driehoek: <span style={{color:"#e05555",fontWeight:600}}>rode zijde²</span> = <span style={{color:"#2a9d5c",fontWeight:600}}>groene zijde²</span> + <span style={{color:"#b8860b",fontWeight:600}}>gouden zijde²</span></>}
+          formule="(c·Δt)² = L² + (v·Δt)²"
+        />
+        <StapRegel
+          nr={2}
+          uitleg="Werk de haakjes uit — beide kanten hebben een Δt² erin"
+          formule="c²·Δt² = L² + v²·Δt²"
+        />
+        <StapRegel
+          nr={3}
+          uitleg="Breng alle Δt²-termen naar links, zodat je ze kunt samenvoegen"
+          formule="c²·Δt² − v²·Δt² = L²"
+        />
+        <StapRegel
+          nr={4}
+          uitleg="Haal Δt² buiten haakjes"
+          formule="Δt²·(c² − v²) = L²"
+        />
+        <StapRegel
+          nr={5}
+          uitleg="Deel beide kanten door (c²−v²) en trek de wortel"
+          formule="Δt = L / √(c² − v²)"
+        />
+        <StapRegel
+          nr={6}
+          uitleg="Haal een factor c uit de wortel, zodat je c²/c²=1 krijgt onder de wortel"
+          formule="Δt = L / (c·√(1 − v²/c²))"
+        />
+        <StapRegel
+          nr={7}
+          uitleg={<>Herken L/c als de <span style={{color:"#2a9d5c",fontWeight:600}}>eigen tijd Δτ</span> (de tijd die het licht nodig heeft als de klok stilstaat)</>}
+          formule="Δt = Δτ / √(1 − v²/c²)"
+        />
+        <StapRegel
+          nr={8}
+          uitleg="Dat is precies de formule met de Lorentzfactor γ = 1/√(1−v²/c²)"
+          formule="Δt = γ · Δτ"
+          laatste
+        />
+
+        <div style={{ background: "#f5f7fa", border: "1px solid #e0e4ea", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1a3a5c", marginBottom: 4 }}>
+            Met jouw huidige getallen (v={vFrac.toFixed(2)}c, L=1):
+          </div>
+          <div style={{ fontSize: 11.5, color: "#444", lineHeight: 1.6 }}>
+            c²−v² = 1−{(vFrac*vFrac).toFixed(3)} = {(1-vFrac*vFrac).toFixed(3)}<br />
+            √(c²−v²) = {wortel.toFixed(3)}<br />
+            Δt/Δτ = 1/{wortel.toFixed(3)} = γ = <b>{gamma.toFixed(3)}</b>
+          </div>
+        </div>
+      </div>
+
+      {/* TWEEDE DEEL: van tijd naar afstand -- horizontale lichtklok */}
+      <div style={{ marginTop: 22, paddingTop: 16, borderTop: "2px solid #e0e4ea" }}>
+        <h2 style={{ fontSize: 17, marginBottom: 8 }}>En nu de afstand: de horizontale lichtklok</h2>
+        <p style={{ fontSize: 13, color: "#444", marginBottom: 14, lineHeight: 1.5 }}>
+          Zelfde truc, maar nu laat je het licht evenwijdig aan de beweging
+          heen en weer kaatsen — tussen het achter- en voor-uiteinde van een
+          staaf. Dat geeft de lengte er rechtstreeks bij.
+        </p>
+
+        <svg width="100%" viewBox="0 0 360 140" style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8 }}>
+          {/* de staaf, met lengte L in perron-kader */}
+          <line x1={40} y1={70} x2={320} y2={70} stroke="#ddd" strokeWidth={1} />
+          <circle cx={80} cy={70} r={5} fill="#333" />
+          <circle cx={280} cy={70} r={5} fill="#333" />
+          <line x1={80} y1={55} x2={80} y2={85} stroke="#333" strokeWidth={1} />
+          <line x1={280} y1={55} x2={280} y2={85} stroke="#333" strokeWidth={1} />
+          <line x1={80} y1={40} x2={280} y2={40} stroke="#2a9d5c" strokeWidth={2} />
+          <text x={180} y={32} fontSize={12} textAnchor="middle" fill="#2a9d5c" fontWeight={600}>L (perron-kader)</text>
+          <text x={80} y={100} fontSize={10} textAnchor="middle" fill="#555">achter</text>
+          <text x={280} y={100} fontSize={10} textAnchor="middle" fill="#555">voor</text>
+
+          {/* heenweg: licht achtervolgt het voor-uiteinde */}
+          <line x1={80} y1={115} x2={280} y2={115} stroke="#e05555" strokeWidth={2} markerEnd="url(#pijl)" />
+          <text x={180} y={130} fontSize={11} textAnchor="middle" fill="#e05555">
+            heen: t₁ = L/(c−v)
+          </text>
+
+          {/* terugweg label */}
+          <text x={180} y={115} fontSize={10} textAnchor="middle" fill="#999" dy={-16}>
+          </text>
+
+          <defs>
+            <marker id="pijl" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 Z" fill="#e05555" />
+            </marker>
+          </defs>
+        </svg>
+        <p style={{ fontSize: 11, color: "#777", marginTop: 4, marginBottom: 14, lineHeight: 1.4 }}>
+          Heenweg: het licht moet het wegrijdende voor-uiteinde inhalen — netto
+          sluitingssnelheid (c−v), dus t₁=L/(c−v). Terugweg (niet getekend,
+          spiegelbeeld): het licht ontmoet het naderende achter-uiteinde — netto
+          snelheid (c+v), dus t₂=L/(c+v). Dit zijn dezelfde soort formules als
+          t_achter/t_voor die je al kent uit de hoofdtool.
+        </p>
+
+        <StapRegel
+          nr={1}
+          uitleg="De totale (perron-)tijd voor een rondje heen-en-terug is de som van beide etappes"
+          formule="t_totaal = L/(c−v) + L/(c+v)"
+        />
+        <StapRegel
+          nr={2}
+          uitleg="Gelijknamig maken en optellen"
+          formule="t_totaal = 2Lc / (c² − v²)"
+        />
+        <StapRegel
+          nr={3}
+          uitleg="Dezelfde rondreis, maar nu gemeten met de klok die MET de staaf meereist: gewoon 2×L₀/c (eigen lengte, heen en terug, geen gedoe met snelheden optellen)"
+          formule="τ_totaal = 2·L₀/c"
+        />
+        <StapRegel
+          nr={4}
+          uitleg="Tijdsdilatatie (net afgeleid!) zegt dat deze twee tijden met elkaar samenhangen via γ"
+          formule="t_totaal = γ · τ_totaal"
+        />
+        <StapRegel
+          nr={5}
+          uitleg="Vul stap 2 en 3 in op de plek van t_totaal en τ_totaal"
+          formule="2Lc/(c²−v²) = γ · 2L₀/c"
+        />
+        <StapRegel
+          nr={6}
+          uitleg="Los op naar L — de L's en constanten herschikken"
+          formule="L = γ·L₀·(c²−v²)/c²"
+        />
+        <StapRegel
+          nr={7}
+          uitleg="Herken (c²−v²)/c² als 1/γ² (dat volgt direct uit de definitie van γ)"
+          formule="L = γ·L₀/γ² = L₀/γ"
+          laatste
+        />
+
+        <div style={{ background: "#f5f7fa", border: "1px solid #e0e4ea", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1a3a5c", marginBottom: 4 }}>
+            Met jouw huidige getallen (v={vFrac.toFixed(2)}c, L₀=1):
+          </div>
+          <div style={{ fontSize: 11.5, color: "#444", lineHeight: 1.6 }}>
+            L = L₀/γ = 1/{gamma.toFixed(3)} = <b>{(1/gamma).toFixed(3)}</b>
+          </div>
+        </div>
+
+        <div style={{ background: "#eef5ff", border: "1px solid #cfe0f5", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.6, color: "#1a3a5c", marginTop: 10 }}>
+          <b>Het mooie:</b> deze afleiding gebruikt geen Pythagoras, maar
+          leunt juist op de tijdsdilatatie die je hierboven al had afgeleid.
+          Lengtecontractie en tijdsdilatatie zijn dus niet twee losse trucs —
+          de een volgt rechtstreeks uit de ander, plus het simpele feit dat
+          licht in ELK kader dezelfde snelheid c heeft.
+        </div>
+      </div>
+
+      {/* DERDE DEEL: de twee assenstelsels zoals in het boek (C en C') */}
+      <div style={{ marginTop: 22, paddingTop: 16, borderTop: "2px solid #e0e4ea" }}>
+        <h2 style={{ fontSize: 17, marginBottom: 8 }}>De twee assenstelsels, zoals in het boek</h2>
+        <p style={{ fontSize: 13, color: "#444", marginBottom: 14, lineHeight: 1.5 }}>
+          C is het perron-kader (stilstaand), C′ is het kader van de staaf zelf
+          (bewegend, "eigen" ruler). Beide rulers beginnen bij hetzelfde
+          startpunt x=x′=0. Kijk wat er gebeurt met het rechter-uiteinde.
+        </p>
+
+        <svg width="100%" viewBox="0 0 360 180" style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8 }}>
+          {(() => {
+            const startX = 30, eindX = 330;
+            const eenheidPx = (eindX - startX) / 1.3; // schaal: 1 eenheid = zoveel px
+            const toPx = (u) => startX + u * eenheidPx;
+
+            const yC = 40;   // C-ruler (perron), bovenaan
+            const yC2 = 130; // C'-ruler (eigen), onderaan
+
+            const L0lokaal = 1.0; // eigen lengte op C'-ruler
+            const Lclokaal = 1 / gamma; // gecontraheerde lengte op C-ruler
+
+            const ticks = [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2];
+
+            return (
+              <>
+                {/* C-ruler (perron), boven */}
+                <line x1={toPx(0)} y1={yC} x2={toPx(1.25)} y2={yC} stroke="#333" strokeWidth={1.5} />
+                {ticks.map((tk) => (
+                  <g key={`c${tk}`}>
+                    <line x1={toPx(tk)} y1={yC - 4} x2={toPx(tk)} y2={yC + 4} stroke="#333" strokeWidth={1} />
+                    <text x={toPx(tk)} y={yC - 8} fontSize={8} textAnchor="middle" fill="#333">{tk.toFixed(1)}</text>
+                  </g>
+                ))}
+                <text x={toPx(1.28)} y={yC + 4} fontSize={11} fill="#333" fontWeight={600}>x (C)</text>
+
+                {/* rod op de C-ruler: gecontraheerde lengte */}
+                <line x1={toPx(0)} y1={yC + 14} x2={toPx(Lclokaal)} y2={yC + 14} stroke="#e05555" strokeWidth={4} />
+                <text x={toPx(Lclokaal / 2)} y={yC + 27} fontSize={9} textAnchor="middle" fill="#e05555" fontWeight={600}>
+                  L = L₀/γ = {Lclokaal.toFixed(2)}
+                </text>
+
+                {/* C'-ruler (eigen), onder */}
+                <line x1={toPx(0)} y1={yC2} x2={toPx(1.25)} y2={yC2} stroke="#b8860b" strokeWidth={1.5} />
+                {ticks.map((tk) => (
+                  <g key={`cp${tk}`}>
+                    <line x1={toPx(tk)} y1={yC2 - 4} x2={toPx(tk)} y2={yC2 + 4} stroke="#b8860b" strokeWidth={1} />
+                    <text x={toPx(tk)} y={yC2 + 16} fontSize={8} textAnchor="middle" fill="#b8860b">{tk.toFixed(1)}</text>
+                  </g>
+                ))}
+                <text x={toPx(1.28)} y={yC2 + 4} fontSize={11} fill="#b8860b" fontWeight={600}>x′ (C′)</text>
+
+                {/* rod op de C'-ruler: volle eigen lengte */}
+                <line x1={toPx(0)} y1={yC2 - 14} x2={toPx(L0lokaal)} y2={yC2 - 14} stroke="#2a9d5c" strokeWidth={4} />
+                <text x={toPx(L0lokaal / 2)} y={yC2 - 20} fontSize={9} textAnchor="middle" fill="#2a9d5c" fontWeight={600}>
+                  L₀ = {L0lokaal.toFixed(2)}
+                </text>
+
+                {/* verbindingslijnen: linkeruiteinde (triviaal verticaal) en rechteruiteinde (schuin) */}
+                <line x1={toPx(0)} y1={yC + 14} x2={toPx(0)} y2={yC2 - 14} stroke="#999" strokeWidth={0.8} strokeDasharray="3 3" />
+                <line x1={toPx(Lclokaal)} y1={yC + 14} x2={toPx(L0lokaal)} y2={yC2 - 14} stroke="#999" strokeWidth={0.8} strokeDasharray="3 3" />
+              </>
+            );
+          })()}
+        </svg>
+
+        <p style={{ fontSize: 11, color: "#777", marginTop: 4, marginBottom: 10, lineHeight: 1.4 }}>
+          Beide rulers hebben dezelfde schaal (1 eenheid = evenveel pixels).
+          De <span style={{color:"#2a9d5c",fontWeight:600}}>groene staaf</span> op
+          de C′-ruler (onder) toont de volle eigen lengte L₀=1 — zo meet de
+          staaf zichzelf. De <span style={{color:"#e05555",fontWeight:600}}>rode
+          staaf</span> op de C-ruler (boven) toont dezelfde staaf, maar nu
+          afgelezen vanaf het perron: hij past in minder ruimte. De schuine
+          stippellijn rechts verbindt hetzelfde fysieke uiteinde in beide
+          rulers — en laat zien dat het op de C-ruler eerder eindigt.
+        </p>
+
+        <div style={{ background: "#f5f7fa", border: "1px solid #e0e4ea", borderRadius: 8, padding: "10px 12px", fontSize: 11.5, color: "#444", lineHeight: 1.6, marginBottom: 14 }}>
+          Dit is exact figuur 2 uit het boek, alleen dan met de staaf erbij
+          getekend: <i>x</i> en <i>x′</i> zijn de coördinaten van hetzelfde
+          punt (het rechter-uiteinde), afgelezen op de twee verschillende
+          rulers. Het verschil tussen die twee getallen — {(1/gamma).toFixed(2)}{" "}
+          versus 1 — is precies wat de wortel-formule in de Lorentz-
+          transformatie uitrekent.
+        </div>
+
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a3a5c", marginBottom: 8 }}>
+          Dezelfde stappen als in het boek — nu met verwijzing naar het plaatje hierboven
+        </div>
+
+        <StapRegel
+          nr={1}
+          uitleg={<>Leg de staaf langs de x′-as van C′ — dat is precies de <span style={{color:"#2a9d5c",fontWeight:600}}>groene staaf op de onderste ruler</span>, van x′=0 tot x′=1</>}
+          formule="staaf: x′ = 0 tot x′ = 1"
+        />
+        <StapRegel
+          nr={2}
+          uitleg="Om de lengte t.o.v. C te vinden, gebruik je de (al bekende) Lorentz-formule voor x, ingevuld op t=0"
+          formule="x = x′·√(1−v²/c²) + v·t"
+        />
+        <StapRegel
+          nr={3}
+          uitleg={<>Vul het <span style={{color:"#2a9d5c",fontWeight:600}}>beginpunt x′=0</span> in (linkerkant van de groene staaf, en van de rode staaf — die vallen samen, zie de verticale stippellijn links)</>}
+          formule={`x(begin) = 0 · ${wortel.toFixed(3)} = 0`}
+        />
+        <StapRegel
+          nr={4}
+          uitleg={<>Vul het <span style={{color:"#2a9d5c",fontWeight:600}}>eindpunt x′=1</span> in (rechterkant van de groene staaf — volg de schuine stippellijn naar rechts, naar waar de rode staaf eindigt)</>}
+          formule={`x(eind) = 1 · ${wortel.toFixed(3)} = ${wortel.toFixed(3)}`}
+        />
+        <StapRegel
+          nr={5}
+          uitleg={<>De afstand tussen die twee punten is precies de lengte van de <span style={{color:"#e05555",fontWeight:600}}>rode staaf op de bovenste (C-)ruler</span> in het plaatje</>}
+          formule={`afstand = ${wortel.toFixed(3)} − 0 = ${wortel.toFixed(3)}`}
+          laatste
+        />
+
+        <div style={{ background: "#eef5ff", border: "1px solid #cfe0f5", borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.6, color: "#1a3a5c", marginTop: 10 }}>
+          Kijk nog eens naar het plaatje hierboven: de groene staaf (C′, eigen
+          lengte 1) en de rode staaf (C, lengte {wortel.toFixed(2)}) staan
+          er letterlijk naast elkaar getekend — dit is precies wat de vijf
+          stapjes hierboven berekenen, alleen dan meetkundig i.p.v. algebraïsch.
+        </div>
+      </div>
+
+      {/* VIERDE DEEL: de hyperbolen -- L en Δt in één plaatje */}
+      <div style={{ marginTop: 22, paddingTop: 16, borderTop: "2px solid #e0e4ea" }}>
+        <h2 style={{ fontSize: 17, marginBottom: 8 }}>De hyperbolen: Δt en L in één plaatje</h2>
+        <p style={{ fontSize: 13, color: "#444", marginBottom: 14, lineHeight: 1.5 }}>
+          Net als een cirkel x²+y²=1 in gewone meetkunde elk gekanteld
+          assenstelsel op dezelfde manier "ijkt", doen twee hyperbolen dat in
+          een Minkowski-diagram — ééntje voor tijd, ééntje voor ruimte.
+        </p>
+
+        {(() => {
+          const svgW2 = 360, svgH2 = 320;
+          const schaal = 90; // px per eenheid
+          const cx = svgW2 / 2, cy = svgH2 - 30;
+          const toX2 = (x) => cx + x * schaal;
+          const toY2 = (ct) => cy - ct * schaal;
+
+          const bereik = 1.6;
+
+          // hyperbool-punten via cosh/sinh
+          const spacelikePts = [];
+          const timelikePts = [];
+          for (let phi = -1.0; phi <= 1.0; phi += 0.05) {
+            spacelikePts.push([Math.cosh(phi), Math.sinh(phi)]); // x^2-ct^2=1
+            timelikePts.push([Math.sinh(phi), Math.cosh(phi)]);  // ct^2-x^2=1
+          }
+          const naarPad = (pts) => pts.map(([x, ct], i) => `${i === 0 ? "M" : "L"} ${toX2(x)} ${toY2(ct)}`).join(" ");
+
+          // calibratiepunten
+          const P = [gamma, gamma * vFrac]; // x'=1 op de x'-as, op de hyperbool
+          const Q = [gamma * vFrac, gamma]; // t'=1 op de ct'-as, op de hyperbool
+          const Lpunt = [1 / gamma, 0]; // gecontraheerde lengte, op ct=0
+
+          return (
+            <svg width="100%" viewBox={`0 0 ${svgW2} ${svgH2}`} style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: 8 }}>
+              {/* assen C (zwart) */}
+              <line x1={toX2(-bereik)} y1={toY2(0)} x2={toX2(bereik)} y2={toY2(0)} stroke="#333" strokeWidth={1} />
+              <line x1={toX2(0)} y1={toY2(-0.2)} x2={toX2(0)} y2={toY2(bereik)} stroke="#333" strokeWidth={1} />
+              <text x={toX2(bereik) - 4} y={toY2(0) - 6} fontSize={10} textAnchor="end" fill="#333">x</text>
+              <text x={toX2(0) + 6} y={toY2(bereik) + 10} fontSize={10} fill="#333">ct</text>
+
+              {/* assen C' (goud, gekanteld) */}
+              <line x1={toX2(0)} y1={toY2(0)} x2={toX2(bereik)} y2={toY2(bereik * vFrac)} stroke="#b8860b" strokeWidth={1} strokeDasharray="2 2" />
+              <line x1={toX2(0)} y1={toY2(0)} x2={toX2(bereik * vFrac)} y2={toY2(bereik)} stroke="#b8860b" strokeWidth={1} strokeDasharray="2 2" />
+              <text x={toX2(bereik) - 4} y={toY2(bereik * vFrac) - 6} fontSize={10} fill="#b8860b">x′</text>
+              <text x={toX2(bereik * vFrac) + 6} y={toY2(bereik) + 4} fontSize={10} fill="#b8860b">ct′</text>
+
+              {/* hyperbolen */}
+              <path d={naarPad(spacelikePts)} fill="none" stroke="#999" strokeWidth={1} strokeDasharray="4 3" />
+              <path d={naarPad(timelikePts)} fill="none" stroke="#999" strokeWidth={1} strokeDasharray="4 3" />
+
+              {/* punt P: calibratie x'=1 (op de ruimte-hyperbool) */}
+              <circle cx={toX2(P[0])} cy={toY2(P[1])} r={4} fill="#2a9d5c" />
+              <text x={toX2(P[0]) + 6} y={toY2(P[1]) - 4} fontSize={9} fill="#2a9d5c" fontWeight={600}>x′=1</text>
+
+              {/* front-wereldlijn van P naar beneden (evenwijdig aan ct'-as) tot ct=0 */}
+              <line x1={toX2(P[0])} y1={toY2(P[1])} x2={toX2(Lpunt[0])} y2={toY2(Lpunt[1])} stroke="#e05555" strokeWidth={1.5} strokeDasharray="3 2" />
+              <circle cx={toX2(Lpunt[0])} cy={toY2(Lpunt[1])} r={4} fill="#e05555" />
+              <text x={toX2(Lpunt[0])} y={toY2(Lpunt[1]) + 16} fontSize={9} fill="#e05555" textAnchor="middle" fontWeight={600}>
+                L={Lpunt[0].toFixed(2)}
+              </text>
+
+              {/* punt Q: calibratie t'=1 (op de tijd-hyperbool) */}
+              <circle cx={toX2(Q[0])} cy={toY2(Q[1])} r={4} fill="#8e44ad" />
+              <text x={toX2(Q[0]) + 6} y={toY2(Q[1]) + 4} fontSize={9} fill="#8e44ad" fontWeight={600}>t′=1</text>
+
+              {/* horizontale lijn van Q naar de ct-as: directe aflezing van Δt */}
+              <line x1={toX2(Q[0])} y1={toY2(Q[1])} x2={toX2(0)} y2={toY2(Q[1])} stroke="#8e44ad" strokeWidth={1.5} strokeDasharray="3 2" />
+              <text x={toX2(0) - 6} y={toY2(Q[1]) - 4} fontSize={9} fill="#8e44ad" textAnchor="end" fontWeight={600}>
+                Δt=γ={gamma.toFixed(2)}
+              </text>
+            </svg>
+          );
+        })()}
+
+        <p style={{ fontSize: 11, color: "#777", marginTop: 8, marginBottom: 10, lineHeight: 1.4 }}>
+          De onderste grijze kromme (x²−(ct)²=1) ijkt de x′-as: waar hij die
+          as kruist, ligt het échte punt "x′=1" (<span style={{color:"#2a9d5c",fontWeight:600}}>groen</span>).
+          Volg vandaar de rode stippellijn — evenwijdig aan de ct′-as, dus
+          de wereldlijn van het voor-uiteinde — naar beneden tot ct=0: dat
+          geeft direct L={(1/gamma).toFixed(2)}, exact zoals in het staaf-diagram
+          hierboven. De bovenste grijze kromme ((ct)²−x²=1) ijkt op dezelfde
+          manier de ct′-as bij "t′=1" (<span style={{color:"#8e44ad",fontWeight:600}}>paars</span>);
+          gewoon de ct-waarde aflezen geeft direct Δt=γ.
+        </p>
+
+        <div style={{ background: "#f5f7fa", border: "1px solid #e0e4ea", borderRadius: 8, padding: "10px 12px", fontSize: 11.5, color: "#444", lineHeight: 1.6 }}>
+          Beide effecten komen dus uit precies dezelfde twee krommen — het
+          verschil zit alleen in welke kant je de hyperbool om buigt (ruimte-
+          of tijdrichting) en hoe je het calibratiepunt terugleest (schuin
+          naar ct=0 voor L, direct aflezen voor Δt). Dat is het hyperbolische
+          equivalent van "sinus en cosinus komen uit dezelfde cirkel".
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<LichtklokDriehoek />);
+</script>
+</body>
+</html>
