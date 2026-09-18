@@ -3,16 +3,41 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: transparent; }
   #root { width: 100%; }
+  #foutmelding {
+    display: none;
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #2a1212; color: #ffb4b4; border: 1px solid #8b2c2c;
+    border-radius: 8px; padding: 12px 14px; margin: 10px;
+    font-size: 13px; line-height: 1.5; white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
+<div id="foutmelding"></div>
 <div id="root"></div>
+<script>
+// Vangt fouten op die anders onzichtbaar zouden blijven (leeg scherm)
+function toonFout(bericht) {
+  var el = document.getElementById('foutmelding');
+  el.style.display = 'block';
+  el.textContent = 'FOUT: ' + bericht;
+}
+window.addEventListener('error', function(e) {
+  toonFout((e.message || 'onbekend') + '\n' + (e.filename || '') + ' regel ' + (e.lineno || '?'));
+});
+// Controleer of de CDN-bibliotheken geladen zijn
+window.addEventListener('load', function() {
+  if (typeof React === 'undefined') toonFout('React kon niet geladen worden (CDN geblokkeerd?)');
+  else if (typeof ReactDOM === 'undefined') toonFout('ReactDOM kon niet geladen worden');
+  else if (typeof Babel === 'undefined') toonFout('Babel kon niet geladen worden');
+});
+</script>
 <script type="text/babel" data-presets="react">
 const { useState } = React;
 
@@ -537,8 +562,12 @@ function LichtklokDriehoek() {
 }
 
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<LichtklokDriehoek />);
+try {
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<LichtklokDriehoek />);
+} catch (err) {
+  toonFout(err && err.message ? err.message : String(err));
+}
 </script>
 </body>
 </html>
